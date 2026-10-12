@@ -166,10 +166,12 @@ export function AppShell() {
           <span className="grid size-9 shrink-0 place-items-center rounded-full bg-accent-soft text-sm font-semibold text-accent">
             {user?.name.charAt(0)}
           </span>
-          <div className="min-w-0 flex-1">
+          {/* الاسم رابط إلى شاشة الحساب: كلمة المرور والبريد يغيّرهما صاحبهما من
+              هنا، لا من شاشة المستخدمين — فلا يملكهما أحد غيره. */}
+          <NavLink to="/account" className="min-w-0 flex-1 rounded-lg hover:bg-surface-2">
             <p className="truncate text-[13px] font-medium">{user?.name}</p>
             <p className="truncate text-[11px] text-faint">{user && ROLE_LABELS[user.role]}</p>
-          </div>
+          </NavLink>
           {/* زرّان ينهيان الجلسة نفسها، والفرق في النيّة لا في الأثر: «تبديل»
               لتسليم الجهاز لموظف آخر، و«خروج» لإقفال المحل. */}
           <Button
@@ -257,6 +259,7 @@ const TITLES: Record<string, string> = {
   accountant: 'المحاسب الذكي',
   users: 'المستخدمون',
   settings: 'الإعدادات',
+  account: 'حسابي',
 }
 
 function Breadcrumb() {

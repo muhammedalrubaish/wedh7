@@ -475,7 +475,8 @@ function UserForm({
         {cloudAuth ? (
           <Field label="كلمة المرور" error={error}>
             <p className="rounded-xl bg-surface-2 px-3 py-2.5 text-[12px] leading-6 text-muted">
-              يغيّرها صاحب الحساب بنفسه من شاشة الدخول. لا تُعرض ولا تُعيَّن من هنا.
+              يغيّرها صاحب الحساب بنفسه من شاشة «حسابي» (اضغط اسمك أسفل القائمة). لا تُعرض ولا
+              تُعيَّن من هنا.
             </p>
           </Field>
         ) : (

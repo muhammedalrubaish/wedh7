@@ -27,6 +27,7 @@ const Reports = lazy(() => import('./pages/Reports'))
 const Accountant = lazy(() => import('./pages/Accountant'))
 const UsersPage = lazy(() => import('./pages/Users'))
 const SettingsPage = lazy(() => import('./pages/Settings'))
+const Account = lazy(() => import('./pages/Account'))
 
 function RouteFallback() {
   return (
@@ -174,6 +175,7 @@ export default function App() {
               </Guard>
             }
           />
+          <Route path="account" element={<Account />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>

@@ -261,6 +261,34 @@ export async function updatePassword(password: string): Promise<AuthResult> {
   return { ok: true }
 }
 
+/**
+ * تغيير بريد الحساب — الوضع السحابي وحده.
+ *
+ * حالة التسليم: المطوّر ينشئ الحساب ببريد مؤقت ويسلّمه لصاحب المحل، فينقله
+ * صاحب المحل إلى بريده هو. Supabase تُرسل رابط تأكيد إلى البريد الجديد (وإلى
+ * القديم أيضاً إن كان «التأكيد المزدوج» مفعّلاً في إعدادات المشروع) ولا يتغيّر
+ * البريد قبل الضغط عليه — فالرسالة هنا تشرح ذلك بدل أن يظنّ أن الزرّ لم يعمل.
+ */
+export async function updateEmail(email: string): Promise<AuthResult> {
+  if (!cloudAuth) return { ok: false, error: 'تغيير البريد يحتاج قاعدة بيانات مربوطة.' }
+
+  const { error } = await requireClient().auth.updateUser({ email: email.trim() })
+  if (error) return { ok: false, error: humanError(error) }
+  return {
+    ok: true,
+    notice:
+      'أُرسل رابط تأكيد إلى البريد الجديد. افتحه ثم عد هنا — لا يتغيّر البريد قبل التأكيد. ' +
+      'ولو كان التأكيد المزدوج مفعّلاً فسيصل رابط ثانٍ إلى البريد القديم أيضاً.',
+  }
+}
+
+/** بريد الجلسة الحالية — يُعرض في شاشة الحساب ليعرف صاحبه بأي بريد يدخل. */
+export async function currentEmail(): Promise<string | null> {
+  if (!cloudAuth) return null
+  const { data } = await requireClient().auth.getSession()
+  return data.session?.user.email ?? null
+}
+
 /** الخروج من مسار الاسترجاع بلا تغيير — يُنهي الجلسة المؤقتة معه. */
 export async function cancelRecovery(): Promise<void> {
   setRecovery(false)
