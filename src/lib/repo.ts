@@ -1,0 +1,733 @@
+/**
+ * حدود الكتابة الوحيدة.
+ *
+ * بعد أن صارت Supabase مصدر الحقيقة، **ما يُكتب محلياً وحده يمحوه أول
+ * `pullAll`**: فبيعة تُسجَّل في Dexie ولا تصل الخادم تختفي عند إعادة فتح
+ * الصفحة، بلا رسالة ولا أثر.
+ *
+ * لذلك كل دالة هنا لها فرعان:
+ *   • سحابي — الخادم أولاً (دالة ذرّية حيث وُجدت)، ثم تحديث المرآة.
+ *   • محلي  — السلوك نفسه على IndexedDB، للعرض على جهاز بلا قاعدة مربوطة.
+ *
+ * والبيع يتوقّف بلا إنترنت عمداً: بوكس واحد يُباع من جهازين في آنٍ واحد
+ * أغلى من دقائق انقطاع.
+ */
+import {
+  applyMovement as applyMovementLocal,
+  db,
+  logAudit,
+  nextNumber,
+  saveSettings as saveSettingsLocal,
+  uid,
+} from './db'
+import { cloudEnabled, humanError, requireClient } from './supabase'
+import { refreshInvoice, refreshPart, refreshParts, refreshReturn } from './mirror'
+import { returnUnitPrice, returnedByPart } from './analytics'
+import { round2 } from './format'
+import {
+  fromCustomer,
+  fromPart,
+  fromPurchaseOrder,
+  fromPurchaseOrderLine,
+  fromAuditEntry,
+  fromSettings,
+  toInvoice,
+  toPurchaseOrder,
+  toReturnNote,
+} from './rows'
+import type {
+  Category,
+  Customer,
+  Invoice,
+  Part,
+  PaymentMethod,
+  PurchaseOrder,
+  ReturnLine,
+  ReturnNote,
+  Settings,
+  StockMovement,
+  Supplier,
+  User,
+} from './types'
+
+/** خطأ واحد مفهوم بدل انهيار بمرجع فارغ حين ينقطع الاتصال. */
+function guardOnline(): void {
+  if (!navigator.onLine) {
+    throw new Error('لا يوجد اتصال بالإنترنت. البيع والتعديل يحتاجان اتصالاً — العرض ما زال يعمل.')
+  }
+}
+
+const fail = (err: unknown): never => {
+  throw new Error(humanError(err))
+}
+
+/* -------------------------------------------------------------------------- */
+/* دفتر الحركة                                                                 */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * المنفذ الوحيد لتغيير الرصيد — القاعدة الأولى في المشروع.
+ *
+ * في الوضع السحابي ينادي `record_movement()` التي تكتب القيد وتُحدّث الرصيد
+ * وتعيد حساب متوسط التكلفة داخل معاملة واحدة على الخادم. لا يُكتب `qty` هنا
+ * إطلاقاً؛ يُعاد سحبه من الخادم بعد النداء.
+ */
+export async function applyMovement(input: {
+  partId: string
+  qty: number
+  type: StockMovement['type']
+  userId: string
+  unitCost?: number
+  ref?: string
+  note?: string
+  at?: number
+}): Promise<void> {
+  if (!cloudEnabled) return applyMovementLocal(input)
+  guardOnline()
+  const { error } = await requireClient().rpc('record_movement', {
+    p_part_id: input.partId,
+    p_qty: input.qty,
+    p_type: input.type,
+    p_unit_cost: input.unitCost ?? null,
+    p_ref: input.ref ?? null,
+    p_note: input.note ?? null,
+  })
+  if (error) fail(error)
+  await refreshPart(input.partId)
+}
+
+/* -------------------------------------------------------------------------- */
+/* البيع                                                                       */
+/* -------------------------------------------------------------------------- */
+
+export interface SaleLine {
+  partId: string
+  qty: number
+  /** عينات/هدايا مع البند — تُخصم من المخزون بلا سعر. */
+  freeQty: number
+  unitPrice: number
+  discount: number
+}
+
+/**
+ * البيع في نداء واحد.
+ *
+ * `create_sale()` تحجز رقم الفاتورة وتحسب الضريبة وتكتب البنود وتخصم الرصيد
+ * (المحاسَب والعينات معاً) — كله ذرّياً. والنسخة المحلية تفعل ذلك في خطوات
+ * متتابعة لأنها على جهاز واحد لا يقطعه شيء.
+ *
+ * ⚠️ رقم الفاتورة يأتي من الخادم لا من `nextNumber` المحلي: عدّاد في المتصفح
+ * يعني جهازين يبيعان في آنٍ واحد فيولّدان نفس الرقم على فاتورتين ضريبيتين.
+ */
+export async function createSale(input: {
+  customerId?: string
+  paymentMethod: PaymentMethod
+  discount: number
+  lines: SaleLine[]
+  notes?: string
+  /** يُستعمل في الوضع المحلي وحده: الخادم يبني الفاتورة بنفسه. */
+  localInvoice: Invoice
+}): Promise<Invoice> {
+  if (!cloudEnabled) {
+    await db.invoices.add(input.localInvoice)
+    for (const line of input.lines) {
+      await applyMovementLocal({
+        partId: line.partId,
+        qty: -(line.qty + line.freeQty),
+        type: 'sale',
+        userId: input.localInvoice.userId,
+        ref: input.localInvoice.number,
+        note: line.freeQty ? `منها ${line.freeQty} عينة` : undefined,
+      })
+    }
+    return input.localInvoice
+  }
+
+  guardOnline()
+  const { data, error } = await requireClient().rpc('create_sale', {
+    p_customer_id: input.customerId ?? null,
+    p_payment_method: input.paymentMethod,
+    p_discount: input.discount,
+    p_lines: input.lines.map((l) => ({
+      part_id: l.partId,
+      qty: l.qty,
+      free_qty: l.freeQty,
+      unit_price: l.unitPrice,
+      discount: l.discount,
+    })),
+    p_notes: input.notes ?? null,
+  })
+  if (error) fail(error)
+
+  // الصفّ العائد لا يحمل البنود (الدالة تُرجع `invoices%rowtype`)، فتُمرَّر
+  // البنود المحلية كلقطة وقت البيع حتى يصل السحب التالي بالنسخة الرسمية.
+  const invoice = toInvoice(data as Record<string, unknown>, input.localInvoice)
+  await db.invoices.put(invoice)
+  await Promise.all(input.lines.map((l) => refreshPart(l.partId)))
+  return invoice
+}
+
+/* -------------------------------------------------------------------------- */
+/* المرتجعات والاسترجاع                                                        */
+/* -------------------------------------------------------------------------- */
+
+export interface ReturnRequest {
+  invoice: Invoice
+  /** الكميات المرتجعة لكل منتج — ما ليس هنا لم يُرجع. */
+  lines: Array<{ partId: string; qty: number }>
+  restock: boolean
+  reason?: string
+}
+
+/**
+ * يبني بنود المرتجع وأرقامه من الفاتورة الأصل — نفس المعادلة محلياً وعلى الخادم.
+ *
+ * يُرفض ما يتجاوز المتاح: الكمية المحاسَبة ناقص ما رُجع سابقاً على نفس الفاتورة.
+ * العينات ليست قابلة للردّ بمال لأنها لم تُدفع أصلاً.
+ */
+export async function buildReturn(
+  req: ReturnRequest,
+  existing: ReturnNote[],
+): Promise<Omit<ReturnNote, 'id' | 'number' | 'userId' | 'createdAt'>> {
+  const already = returnedByPart(req.invoice.id, existing)
+  const lines: ReturnLine[] = []
+  for (const r of req.lines) {
+    if (r.qty <= 0) continue
+    const src = req.invoice.lines.find((l) => l.partId === r.partId)
+    if (!src) throw new Error('البند ليس في الفاتورة الأصل')
+    const available = src.qty - (already.get(r.partId) ?? 0)
+    if (r.qty > available) {
+      throw new Error(`«${src.name}»: المتاح للإرجاع ${available} فقط`)
+    }
+    lines.push({
+      partId: src.partId,
+      name: src.name,
+      sku: src.sku,
+      qty: r.qty,
+      unitPrice: returnUnitPrice(req.invoice, src),
+      unitCost: src.unitCost,
+      taxRate: src.taxRate,
+    })
+  }
+  if (lines.length === 0) throw new Error('حدّد كمية مرتجعة لبند واحد على الأقل')
+
+  const subtotal = round2(lines.reduce((n, l) => n + l.unitPrice * l.qty, 0))
+  const vatAmount = round2(lines.reduce((n, l) => n + (l.unitPrice * l.qty * l.taxRate) / 100, 0))
+  return {
+    invoiceId: req.invoice.id,
+    invoiceNumber: req.invoice.number,
+    customerId: req.invoice.customerId,
+    customerName: req.invoice.customerName,
+    lines,
+    subtotal,
+    vatAmount,
+    total: round2(subtotal + vatAmount),
+    restock: req.restock,
+    reason: req.reason?.trim() || undefined,
+  }
+}
+
+/**
+ * مرتجع جزئي: إشعار دائن على فاتورة قائمة.
+ *
+ * `create_return()` على الخادم تتحقق من الكميات، وتحجز الرقم، وتكتب البنود،
+ * وتعيد البوكسات إلى الرصيد إن كانت صالحة — ذرّياً. المنتهي صلاحيته لا يعود:
+ * لا حركة له، فالدفتر يبقى صادقاً (خرج عند البيع ولم يرجع).
+ */
+export async function createReturn(req: ReturnRequest, user: User): Promise<ReturnNote> {
+  if (req.invoice.status === 'refunded') throw new Error('الفاتورة مسترجعة بالكامل أصلاً')
+
+  if (!cloudEnabled) {
+    const existing = await db.returns.where('invoiceId').equals(req.invoice.id).toArray()
+    const draft = await buildReturn(req, existing)
+    const note: ReturnNote = {
+      ...draft,
+      id: uid('ret_'),
+      number: await nextNumber('return'),
+      userId: user.id,
+      createdAt: Date.now(),
+    }
+    await db.returns.add(note)
+    if (note.restock) {
+      for (const l of note.lines) {
+        await applyMovementLocal({
+          partId: l.partId,
+          qty: l.qty,
+          type: 'return_in',
+          userId: user.id,
+          ref: note.number,
+          note: `مرتجع من ${req.invoice.number}`,
+        })
+      }
+    }
+    return note
+  }
+
+  guardOnline()
+  const { data, error } = await requireClient().rpc('create_return', {
+    p_invoice_id: req.invoice.id,
+    p_lines: req.lines.filter((l) => l.qty > 0).map((l) => ({ part_id: l.partId, qty: l.qty })),
+    p_restock: req.restock,
+    p_reason: req.reason?.trim() || null,
+  })
+  if (error) fail(error)
+  const note = toReturnNote(data as Record<string, unknown>)
+  await refreshReturn(note.id)
+  await refreshInvoice(req.invoice.id)
+  if (note.restock) await Promise.all(req.lines.map((l) => refreshPart(l.partId)))
+  return (await db.returns.get(note.id)) ?? note
+}
+
+/**
+ * الاسترجاع الكامل: إلغاء الفاتورة كلها وإعادة كل بوكساتها (والعينات معها)
+ * إلى الرصيد. يُرفض إن كان عليها مرتجع جزئي — وإلا رُدّ المال مرتين.
+ */
+export async function refundInvoice(invoice: Invoice, user: User): Promise<void> {
+  if (!cloudEnabled) {
+    const partial = await db.returns.where('invoiceId').equals(invoice.id).count()
+    if (partial > 0) throw new Error('على هذه الفاتورة مرتجع جزئي — لا يمكن استرجاعها بالكامل')
+    await db.invoices.update(invoice.id, { status: 'refunded', refundedAt: Date.now() })
+    for (const line of invoice.lines) {
+      await applyMovementLocal({
+        partId: line.partId,
+        qty: line.qty + line.freeQty,
+        type: 'return_in',
+        userId: user.id,
+        ref: invoice.number,
+        note: 'استرجاع فاتورة',
+      })
+    }
+    return
+  }
+
+  guardOnline()
+  const { error } = await requireClient().rpc('refund_invoice', { p_invoice_id: invoice.id })
+  if (error) fail(error)
+  await db.invoices.update(invoice.id, { status: 'refunded', refundedAt: Date.now() })
+  await Promise.all(invoice.lines.map((l) => refreshPart(l.partId)))
+}
+
+/* -------------------------------------------------------------------------- */
+/* المنتجات                                                                    */
+/* -------------------------------------------------------------------------- */
+
+/** الإنشاء بلا رصيد: أي كمية ابتدائية تدخل كحركة `purchase` بعدها. */
+export async function createPart(
+  draft: Omit<Part, 'id' | 'createdAt' | 'updatedAt'>,
+): Promise<string> {
+  const id = uid('part_')
+  const now = Date.now()
+  const part: Part = { ...draft, id, qty: 0, archived: false, createdAt: now, updatedAt: now }
+  if (!cloudEnabled) {
+    await db.parts.add(part)
+    return id
+  }
+  guardOnline()
+  const { error } = await requireClient()
+    .from('parts')
+    .insert({ ...fromPart(part), created_at: new Date(now).toISOString() })
+  if (error) fail(error)
+  await refreshPart(id)
+  return id
+}
+
+export async function updatePart(id: string, patch: Partial<Part>): Promise<void> {
+  if (!cloudEnabled) {
+    await db.parts.update(id, { ...patch, updatedAt: Date.now() })
+    return
+  }
+  guardOnline()
+  const current = await db.parts.get(id)
+  if (!current) throw new Error('المنتج غير موجود')
+  const next: Part = { ...current, ...patch }
+  const row = fromPart(next)
+  // `qty` و`cost` لا يُكتبان أبداً: الأول يُشتق من الدفتر والثاني يُحسب بالمتوسط
+  // المرجّح عند الاستلام. و`fromPart` يُسقطهما أصلاً — هذا تذكير لا حماية.
+  const { error } = await requireClient().from('parts').update(row).eq('id', id)
+  if (error) fail(error)
+  await refreshPart(id)
+}
+
+/**
+ * الحقول التي يجوز تعديلها على عدّة منتجات دفعةً واحدة.
+ *
+ * ما ليس هنا مقصود إخراجه: `qty` يُشتقّ من دفتر الحركة، و`cost` يُحسب بالمتوسط
+ * المرجّح، والأسعار لها شاشة التسعير بحساباتها.
+ */
+export interface BulkPartPatch {
+  categoryId?: string
+  supplierId?: string | null
+  location?: string | null
+  reorderPoint?: number
+  reorderQty?: number
+  leadTimeDays?: number
+  archived?: boolean
+}
+
+/** تعديل عدّة منتجات في نداء واحد — لا حلقة على `updatePart`. */
+export async function bulkUpdateParts(ids: string[], patch: BulkPartPatch): Promise<void> {
+  if (!ids.length) return
+  const now = Date.now()
+
+  if (!cloudEnabled) {
+    // `null` في الواجهة يعني «امسح القيمة»، وDexie يعبّر عنه بـ`undefined`.
+    const local: Partial<Part> = { updatedAt: now }
+    for (const [k, v] of Object.entries(patch)) {
+      ;(local as Record<string, unknown>)[k] = v === null ? undefined : v
+    }
+    await db.transaction('rw', db.parts, async () => {
+      for (const id of ids) await db.parts.update(id, local)
+    })
+    return
+  }
+
+  guardOnline()
+  const row: Record<string, unknown> = { updated_at: new Date(now).toISOString() }
+  if (patch.categoryId !== undefined) row.category_id = patch.categoryId
+  if (patch.supplierId !== undefined) row.supplier_id = patch.supplierId || null
+  if (patch.location !== undefined) row.location = patch.location?.trim() || null
+  if (patch.reorderPoint !== undefined) row.reorder_point = patch.reorderPoint
+  if (patch.reorderQty !== undefined) row.reorder_qty = Math.max(1, patch.reorderQty)
+  if (patch.leadTimeDays !== undefined) row.lead_time_days = patch.leadTimeDays
+  if (patch.archived !== undefined) row.archived = patch.archived
+
+  const { error } = await requireClient().from('parts').update(row).in('id', ids)
+  if (error) fail(error)
+  await refreshParts(ids)
+}
+
+/* -------------------------------------------------------------------------- */
+/* العملاء والموردون                                                           */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * العميل **مرجع** لفواتير مضت لا بيانات حسّاسة، فالجدول مقروء ومكتوب مباشرة
+ * بصلاحية `sales.create`. والاسم ورقم الضريبة يُلتقطان لقطةً على الفاتورة وقت
+ * البيع، فتعديل العميل لاحقاً لا يعيد كتابة فاتورة قديمة.
+ */
+export async function createCustomer(draft: Omit<Customer, 'id' | 'createdAt'>): Promise<Customer> {
+  const customer: Customer = { ...draft, id: uid('cus_'), createdAt: Date.now() }
+  if (cloudEnabled) {
+    guardOnline()
+    const { error } = await requireClient().from('customers').insert(fromCustomer(customer))
+    if (error) fail(error)
+  }
+  await db.customers.put(customer)
+  return customer
+}
+
+export async function updateCustomer(id: string, patch: Partial<Customer>): Promise<void> {
+  if (!cloudEnabled) {
+    await db.customers.update(id, patch)
+    return
+  }
+  guardOnline()
+  const row: Record<string, unknown> = {}
+  if (patch.name !== undefined) row.name = patch.name
+  if (patch.phone !== undefined) row.phone = patch.phone || null
+  if (patch.type !== undefined) row.type = patch.type
+  if (patch.vatNumber !== undefined) row.vat_number = patch.vatNumber || null
+  if (patch.notes !== undefined) row.notes = patch.notes || null
+  const { error } = await requireClient().from('customers').update(row).eq('id', id)
+  if (error) fail(error)
+  await db.customers.update(id, patch)
+}
+
+/**
+ * الحذف لا يمسّ الفواتير: `invoices.customer_id` معرّف بـ `on delete set null`،
+ * والفاتورة تحتفظ باسم العميل كلقطة. التاريخ المالي يبقى ويُفقد الربط وحده.
+ */
+export async function deleteCustomer(id: string): Promise<void> {
+  if (cloudEnabled) {
+    guardOnline()
+    const { error } = await requireClient().from('customers').delete().eq('id', id)
+    if (error) fail(error)
+  }
+  await db.customers.delete(id)
+}
+
+export async function createSupplier(draft: Omit<Supplier, 'id'>): Promise<Supplier> {
+  const supplier: Supplier = { ...draft, id: uid('sup_') }
+  if (cloudEnabled) {
+    guardOnline()
+    const { error } = await requireClient().from('suppliers').insert(fromSupplier(supplier))
+    if (error) fail(error)
+  }
+  await db.suppliers.put(supplier)
+  return supplier
+}
+
+export async function updateSupplier(id: string, patch: Partial<Supplier>): Promise<void> {
+  if (!cloudEnabled) {
+    await db.suppliers.update(id, patch)
+    return
+  }
+  guardOnline()
+  const row: Record<string, unknown> = {}
+  if (patch.name !== undefined) row.name = patch.name
+  if (patch.phone !== undefined) row.phone = patch.phone || null
+  if (patch.city !== undefined) row.city = patch.city || null
+  if (patch.leadTimeDays !== undefined) row.lead_time_days = patch.leadTimeDays
+  if (patch.notes !== undefined) row.notes = patch.notes || null
+  const { error } = await requireClient().from('suppliers').update(row).eq('id', id)
+  if (error) fail(error)
+  await db.suppliers.update(id, patch)
+}
+
+/** `on delete set null` على المنتجات، و`restrict` على طلبات التوريد المفتوحة. */
+export async function deleteSupplier(id: string): Promise<void> {
+  if (cloudEnabled) {
+    guardOnline()
+    const { error } = await requireClient().from('suppliers').delete().eq('id', id)
+    if (error) fail(error)
+  }
+  await db.suppliers.delete(id)
+}
+
+export async function updateCategory(id: string, patch: Partial<Category>): Promise<void> {
+  if (!cloudEnabled) {
+    await db.categories.update(id, patch)
+    return
+  }
+  guardOnline()
+  const row: Record<string, unknown> = {}
+  if (patch.name !== undefined) row.name = patch.name
+  if (patch.defaultMarkupPercent !== undefined)
+    row.default_markup_percent = patch.defaultMarkupPercent
+  if (patch.icon !== undefined) row.icon = patch.icon
+  const { error } = await requireClient().from('categories').update(row).eq('id', id)
+  if (error) fail(error)
+  await db.categories.update(id, patch)
+}
+
+/* -------------------------------------------------------------------------- */
+/* طلبات التوريد                                                               */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * رقم الطلب في الوضع السحابي يُشتق من أكبر رقم موجود لا من عدّاد محلي.
+ *
+ * ليست ذرّية تامة — طلبان في نفس اللحظة قد يتنازعان — لكن قيد التفرّد على
+ * `code` يرفض الثاني بخطأ ظاهر بدل أن يقبل رقمين متطابقين بصمت. وطلبات
+ * التوريد تُنشأ مرات في الأسبوع لا مرات في الدقيقة.
+ */
+async function nextPoCode(): Promise<string> {
+  const settings = await db.settings.get('app')
+  const prefix = settings?.poPrefix ?? 'PO-'
+  const { data, error } = await requireClient()
+    .from('purchase_orders')
+    .select('code')
+    .like('code', `${prefix}%`)
+    .order('code', { ascending: false })
+    .limit(1)
+  if (error) fail(error)
+  const last = Array.isArray(data) && data[0] ? String((data[0] as { code: string }).code) : ''
+  const n = Number(last.slice(prefix.length)) || 0
+  return `${prefix}${String(n + 1).padStart(4, '0')}`
+}
+
+export async function createPurchaseOrder(
+  order: Omit<PurchaseOrder, 'id' | 'code'> & { id?: string; code?: string },
+): Promise<PurchaseOrder> {
+  if (!cloudEnabled) {
+    const full: PurchaseOrder = {
+      ...order,
+      id: order.id ?? uid('po_'),
+      code: order.code ?? (await nextNumber('po')),
+    }
+    await db.purchaseOrders.add(full)
+    return full
+  }
+  guardOnline()
+  const full: PurchaseOrder = {
+    ...order,
+    id: order.id ?? uid('po_'),
+    code: order.code ?? (await nextPoCode()),
+  }
+  const client = requireClient()
+  const head = await client.from('purchase_orders').insert(fromPurchaseOrder(full))
+  if (head.error) fail(head.error)
+  if (full.lines.length) {
+    const lines = await client
+      .from('purchase_order_lines')
+      .insert(full.lines.map((l) => fromPurchaseOrderLine(full.id, l)))
+    if (lines.error) fail(lines.error)
+  }
+  await db.purchaseOrders.put(full)
+  return full
+}
+
+export async function updatePurchaseOrder(
+  id: string,
+  patch: Partial<PurchaseOrder>,
+): Promise<void> {
+  if (!cloudEnabled) {
+    await db.purchaseOrders.update(id, patch)
+    return
+  }
+  guardOnline()
+  const row: Record<string, unknown> = {}
+  if (patch.status !== undefined) row.status = patch.status
+  if (patch.notes !== undefined) row.notes = patch.notes ?? null
+  if (patch.customerId !== undefined) row.customer_id = patch.customerId || null
+  if (patch.expectedAt !== undefined) {
+    row.expected_at = patch.expectedAt ? new Date(patch.expectedAt).toISOString() : null
+  }
+  const { error } = await requireClient().from('purchase_orders').update(row).eq('id', id)
+  if (error) fail(error)
+  await db.purchaseOrders.update(id, patch)
+}
+
+/**
+ * الاستلام عبر `receive_purchase()`: تحرّك المخزون وتحدّث حالة الطلب في عملية
+ * واحدة. محلياً تُنفَّذ الخطوات نفسها على المرآة.
+ */
+export async function receivePurchase(
+  poId: string,
+  lines: { partId: string; qty: number }[],
+  user: User,
+): Promise<PurchaseOrder['status']> {
+  if (!cloudEnabled) {
+    const po = await db.purchaseOrders.get(poId)
+    if (!po) throw new Error('طلب التوريد غير موجود')
+    const next = po.lines.map((l) => ({ ...l }))
+    for (const r of lines) {
+      const line = next.find((l) => l.partId === r.partId)
+      if (!line) continue
+      const accept = Math.min(r.qty, line.qty - line.receivedQty)
+      if (accept <= 0) continue
+      await applyMovementLocal({
+        partId: line.partId,
+        qty: accept,
+        type: 'purchase',
+        unitCost: line.unitCost,
+        userId: user.id,
+        ref: po.code,
+      })
+      line.receivedQty += accept
+    }
+    const status: PurchaseOrder['status'] = next.every((l) => l.receivedQty >= l.qty)
+      ? 'received'
+      : 'partial'
+    await db.purchaseOrders.update(poId, {
+      lines: next,
+      status,
+      receivedAt: status === 'received' ? Date.now() : undefined,
+    })
+    return status
+  }
+
+  guardOnline()
+  const client = requireClient()
+  const { data, error } = await client.rpc('receive_purchase', {
+    p_po_id: poId,
+    p_lines: lines.map((l) => ({ part_id: l.partId, qty: l.qty })),
+  })
+  if (error) fail(error)
+  await Promise.all(lines.map((l) => refreshPart(l.partId)))
+
+  // الطلب يُعاد سحبه لا يُحدَّث حسابياً هنا: الخادم هو من قرّر الكميات المقبولة
+  // وحالة الطلب، وإعادة حسابها في الواجهة تعني رقمين قد يختلفان.
+  const fresh = await client
+    .from('purchase_orders')
+    .select('*, purchase_order_lines(*)')
+    .eq('id', poId)
+    .maybeSingle()
+  if (fresh.error) fail(fresh.error)
+  if (fresh.data) {
+    const previous = await db.purchaseOrders.get(poId)
+    await db.purchaseOrders.put(toPurchaseOrder(fresh.data as Record<string, unknown>, previous))
+  }
+  return String(data) as PurchaseOrder['status']
+}
+
+/* -------------------------------------------------------------------------- */
+/* الإعدادات                                                                   */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * إعدادات المحل تُكتب على الخادم لا في المرآة وحدها: أي تعديل محلي يُدهس عند
+ * أول `pullAll`، و`create_sale()` تقرأ نسبة الضريبة والبادئات من صفّ الخادم.
+ * والمحلية تبقى محلية: المظهر تفضيل جهاز، ومفتاح الذكاء الاصطناعي سرّ، والعدّادات
+ * يحجزها الخادم — انظر `toSettings` في `rows.ts`.
+ */
+export async function saveSettings(patch: Partial<Settings>): Promise<Settings> {
+  const next = await saveSettingsLocal(patch)
+  if (!cloudEnabled) return next
+
+  const serverKeys: (keyof Settings)[] = [
+    'shopName',
+    'shopNameEn',
+    'vatNumber',
+    'crNumber',
+    'address',
+    'phone',
+    'currency',
+    'vatRate',
+    'vatEnabled',
+    'zatcaQr',
+    'invoicePrefix',
+    'poPrefix',
+    'returnPrefix',
+    'aiProvider',
+    'aiModel',
+  ]
+  if (!serverKeys.some((k) => k in patch)) return next // المظهر وحده مثلاً — لا داعي لجولة شبكة
+
+  guardOnline()
+  const row = fromSettings(next)
+  delete row.id // المفتاح في الشرط لا في القيم
+  const { error } = await requireClient().from('settings').update(row).eq('id', 'app')
+  if (error) fail(error)
+  return next
+}
+
+/* -------------------------------------------------------------------------- */
+/* سجل التدقيق                                                                 */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * القيد لا يُفشل العملية التي يوثّقها: فشل كتابة سجل التدقيق لا يصحّ أن يلغي
+ * بيعة تمّت على الخادم فعلاً. يُبتلع الخطأ ويُسجَّل في الطرفية — وهذا
+ * الاستثناء الوحيد لقاعدة «لا تبتلع خطأً».
+ */
+export async function audit(
+  user: User,
+  action: string,
+  entity: string,
+  entityId?: string,
+  details?: string,
+): Promise<void> {
+  if (!cloudEnabled) return logAudit(user, action, entity, entityId, details)
+  try {
+    const { error } = await requireClient()
+      .from('audit_log')
+      .insert(
+        fromAuditEntry({
+          // `id` محلي فقط: العمود على الخادم `generated always as identity`.
+          id: uid('aud_'),
+          userId: user.id,
+          userName: user.name,
+          action,
+          entity,
+          entityId,
+          details,
+          at: Date.now(),
+        }),
+      )
+    if (error) throw error
+  } catch (err) {
+    console.warn('تعذّر تسجيل قيد التدقيق:', err)
+  }
+}
+
+function fromSupplier(v: Supplier): Record<string, unknown> {
+  return {
+    id: v.id,
+    name: v.name,
+    phone: v.phone ?? null,
+    city: v.city ?? null,
+    lead_time_days: v.leadTimeDays,
+    notes: v.notes ?? null,
+  }
+}

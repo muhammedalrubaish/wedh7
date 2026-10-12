@@ -1,0 +1,507 @@
+@import 'tailwindcss';
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ---------------------------------------------------------------------------
+   Design tokens. Semantic names only — components never reference raw palettes,
+   so retheming the app means editing this block and nothing else.
+   --------------------------------------------------------------------------- */
+:root {
+  --bg: oklch(0.985 0.005 70);
+  --bg-subtle: oklch(0.965 0.008 70);
+  --surface: oklch(1 0 0);
+  --surface-2: oklch(0.978 0.006 70);
+  --border: oklch(0.912 0.008 250);
+  --border-strong: oklch(0.855 0.012 250);
+
+  --text: oklch(0.25 0.02 255);
+  --text-muted: oklch(0.53 0.018 255);
+  --text-faint: oklch(0.66 0.015 255);
+
+  --brand: oklch(0.6 0.16 50);
+  --brand-strong: oklch(0.5 0.16 48);
+  --brand-soft: oklch(0.955 0.035 60);
+  --on-brand: oklch(0.99 0 0);
+
+  --accent: oklch(0.6 0.17 350);
+  --accent-soft: oklch(0.955 0.03 350);
+
+  --ok: oklch(0.62 0.14 155);
+  --ok-soft: oklch(0.95 0.04 155);
+  --warn: oklch(0.72 0.15 75);
+  --warn-soft: oklch(0.96 0.05 80);
+  --danger: oklch(0.58 0.19 25);
+  --danger-soft: oklch(0.95 0.04 25);
+
+  --ring: oklch(0.6 0.16 50 / 0.45);
+  --shadow-color: 220 30% 40%;
+
+  /* الخلفية ثلاثية الأبعاد واللمسة الزجاجية.
+     الشفافية مضبوطة عالياً عمداً: هذه شاشة يقرأ منها الفني أرقاماً وهو واقف خلف
+     الكاونتر، ولوحة «جميلة» بتباين ضعيف تعني رقماً يُقرأ خطأ. */
+  --grid-line: oklch(0.6 0.12 55 / 0.2);
+  --grid-glow: oklch(0.6 0.16 50 / 0.16);
+  /* نقطة التلاشي، وحجاب الأطراف، وخط الضوء الزاحف على الشبكة */
+  --room-core: oklch(0.66 0.1 55 / 0.1);
+  --room-veil: oklch(0.985 0.006 70 / 0.86);
+  --room-streak: oklch(0.6 0.15 50 / 0.5);
+  --room-glow: oklch(0.64 0.14 55 / 0.22);
+  --panel: oklch(1 0 0 / 0.66);
+  --panel-edge: oklch(1 0 0 / 0.65);
+  --panel-blur: 14px;
+
+  color-scheme: light;
+}
+
+.dark {
+  --bg: oklch(0.19 0.015 40);
+  --bg-subtle: oklch(0.165 0.015 40);
+  --surface: oklch(0.235 0.016 40);
+  --surface-2: oklch(0.275 0.017 40);
+  --border: oklch(0.33 0.017 40);
+  --border-strong: oklch(0.42 0.02 40);
+
+  --text: oklch(0.955 0.006 250);
+  --text-muted: oklch(0.75 0.014 255);
+  --text-faint: oklch(0.62 0.016 255);
+
+  --brand: oklch(0.76 0.14 60);
+  --brand-strong: oklch(0.84 0.12 65);
+  --brand-soft: oklch(0.32 0.06 55);
+  --on-brand: oklch(0.17 0.02 250);
+
+  --accent: oklch(0.76 0.14 350);
+  --accent-soft: oklch(0.32 0.07 350);
+
+  --ok: oklch(0.75 0.15 158);
+  --ok-soft: oklch(0.31 0.06 158);
+  --warn: oklch(0.81 0.15 78);
+  --warn-soft: oklch(0.34 0.06 78);
+  --danger: oklch(0.7 0.17 25);
+  --danger-soft: oklch(0.33 0.08 25);
+
+  --ring: oklch(0.76 0.14 60 / 0.5);
+  --shadow-color: 240 40% 3%;
+
+  /* الداكن يحتمل شفافية أعلى وتوهّجاً أوضح — الخطوط تظهر بلا أن تبتلع النص. */
+  --grid-line: oklch(0.76 0.14 60 / 0.17);
+  --grid-glow: oklch(0.76 0.14 60 / 0.14);
+  --room-core: oklch(0.72 0.1 60 / 0.14);
+  --room-veil: oklch(0.13 0.015 40 / 0.92);
+  --room-streak: oklch(0.96 0.05 70 / 0.8);
+  --room-glow: oklch(0.85 0.12 65 / 0.4);
+  --panel: oklch(0.235 0.016 40 / 0.66);
+  --panel-edge: oklch(0.82 0.06 60 / 0.14);
+  --panel-blur: 16px;
+
+  color-scheme: dark;
+}
+
+@theme inline {
+  --font-sans:
+    'IBM Plex Sans Arabic', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  --color-bg: var(--bg);
+  --color-bg-subtle: var(--bg-subtle);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+
+  --color-text: var(--text);
+  --color-muted: var(--text-muted);
+  --color-faint: var(--text-faint);
+
+  --color-brand: var(--brand);
+  --color-brand-strong: var(--brand-strong);
+  --color-brand-soft: var(--brand-soft);
+  --color-on-brand: var(--on-brand);
+
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+
+  --color-ok: var(--ok);
+  --color-ok-soft: var(--ok-soft);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+
+  --radius-card: 1rem;
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-sans);
+    font-feature-settings: 'ss01', 'cv01';
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ---------------------------------------------------------------------
+     الخلفية: غرفة شبكية ثلاثية الأبعاد — أرضية وسقف وجداران تلتقي عند نقطة
+     تلاشٍ في منتصف الشاشة (منظور حقيقي لا صورة مرسومة)، وفوقها خطوط ضوء
+     تنزلق على خطوط الشبكة نفسها.
+     كله `position: fixed` وتدرّجات CSS خالصة — بلا صورة تُحمّل وبلا إعادة رسم
+     عند التمرير، لأن الجهاز المستهدف جوال يعمل طول اليوم. والحركة مقصورة على
+     `transform` و`opacity` وحدهما، فتبقى على كرت الشاشة ولا تلمس المعالج.
+     --------------------------------------------------------------------- */
+  .room {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    overflow: hidden;
+    pointer-events: none;
+    perspective: 620px;
+    perspective-origin: 50% 50%;
+    /* العزل يمنع هذه الأسطح الضخمة من التأثير في تخطيط الصفحة أو إعادة رسمها */
+    contain: layout paint style;
+    /* توهّج نقطة التلاشي: هو ما يوحي بالعمق قبل أن يُرسم أي خط */
+    background: radial-gradient(58% 46% at 50% 50%, var(--room-core), transparent 72%);
+  }
+
+  /* حجاب يعتّم الأطراف. ليس زخرفة: بدونه تصل خطوط الشبكة إلى حواف الشاشة حيث
+     تجلس الأرقام والأزرار، فيقرأ صاحب المحل رقماً فوق خط. */
+  .room::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(76% 62% at 50% 50%, transparent 28%, var(--room-veil) 100%);
+  }
+
+  .room-plane {
+    --cell: 66px;
+    position: absolute;
+    background-image:
+      linear-gradient(to right, var(--grid-line) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px);
+    background-size: var(--cell) var(--cell);
+    /* التمركز يجعل موضع كل خط معلوماً: نصف خلية عن المنتصف ثم مضاعفات الخلية.
+       عليه تُحسب مواضع خطوط الضوء أدناه فتنزلق فوق الخطوط لا بينها. */
+    background-position: 50% 50%;
+  }
+
+  /* الأرضية والسقف يبتعدان رأسياً، والجداران أفقياً. القناع يذيب كل سطح قبل
+     أن يبلغ نقطة التلاشي فلا تتكوّم الخطوط في المنتصف. */
+  .room-floor {
+    inset: auto -60% 0 -60%;
+    height: 150vh;
+    transform-origin: 50% 100%;
+    transform: rotateX(74deg);
+    -webkit-mask-image: linear-gradient(to top, #000 2%, transparent 58%);
+    mask-image: linear-gradient(to top, #000 2%, transparent 58%);
+  }
+
+  .room-ceiling {
+    inset: 0 -60% auto -60%;
+    height: 150vh;
+    transform-origin: 50% 0%;
+    transform: rotateX(-74deg);
+    -webkit-mask-image: linear-gradient(to bottom, #000 2%, transparent 58%);
+    mask-image: linear-gradient(to bottom, #000 2%, transparent 58%);
+  }
+
+  .room-left {
+    inset: -60% auto -60% 0;
+    width: 150vw;
+    transform-origin: 0% 50%;
+    transform: rotateY(74deg);
+    -webkit-mask-image: linear-gradient(to right, #000 2%, transparent 58%);
+    mask-image: linear-gradient(to right, #000 2%, transparent 58%);
+  }
+
+  .room-right {
+    inset: -60% 0 -60% auto;
+    width: 150vw;
+    transform-origin: 100% 50%;
+    transform: rotateY(-74deg);
+    -webkit-mask-image: linear-gradient(to left, #000 2%, transparent 58%);
+    mask-image: linear-gradient(to left, #000 2%, transparent 58%);
+  }
+
+  /* خط الضوء الزاحف. `--k` رقم الخط الذي يسير عليه (بالخلايا من المنتصف)،
+     و`--travel-*` مسافة الرحلة نحو العمق. المنظور وحده يبطّئه كلما ابتعد. */
+  .room-plane i {
+    position: absolute;
+    opacity: 0;
+    border-radius: 999px;
+    box-shadow: 0 0 9px 1px var(--room-glow);
+    animation: room-streak var(--dur, 7s) var(--delay, 0s) linear infinite;
+  }
+
+  .room-floor i,
+  .room-ceiling i {
+    width: 2px;
+    height: 170px;
+    left: calc(50% + (var(--k) - 0.5) * var(--cell));
+    margin-left: -0.5px;
+  }
+
+  .room-left i,
+  .room-right i {
+    height: 2px;
+    width: 170px;
+    top: calc(50% + (var(--k) - 0.5) * var(--cell));
+    margin-top: -0.5px;
+  }
+
+  .room-floor i {
+    top: 100%;
+    --travel-y: -168vh;
+    background: linear-gradient(to top, transparent, var(--room-streak));
+  }
+
+  .room-ceiling i {
+    top: -170px;
+    --travel-y: 168vh;
+    background: linear-gradient(to bottom, transparent, var(--room-streak));
+  }
+
+  .room-left i {
+    left: -170px;
+    --travel-x: 168vw;
+    background: linear-gradient(to right, transparent, var(--room-streak));
+  }
+
+  .room-right i {
+    left: 100%;
+    --travel-x: -168vw;
+    background: linear-gradient(to left, transparent, var(--room-streak));
+  }
+
+  /* التوزيع: مسارات وأزمنة غير متساوية كي لا تبدو الحركة نبضة واحدة منتظمة.
+     التأخير السالب يبدأ المشهد وسط الحركة بدل شاشة ساكنة أول ثانيتين. */
+  .room-floor i:nth-child(1) {
+    --k: -3;
+    --dur: 7s;
+    --delay: -1.5s;
+  }
+  .room-floor i:nth-child(2) {
+    --k: 2;
+    --dur: 9s;
+    --delay: -5s;
+  }
+  .room-floor i:nth-child(3) {
+    --k: 5;
+    --dur: 8s;
+    --delay: -3s;
+  }
+  .room-ceiling i:nth-child(1) {
+    --k: -1;
+    --dur: 9.5s;
+    --delay: -2s;
+  }
+  .room-ceiling i:nth-child(2) {
+    --k: 4;
+    --dur: 8.5s;
+    --delay: -6s;
+  }
+  .room-left i:nth-child(1) {
+    --k: -2;
+    --dur: 8s;
+    --delay: -4s;
+  }
+  .room-left i:nth-child(2) {
+    --k: 3;
+    --dur: 10s;
+    --delay: -7s;
+  }
+  .room-right i:nth-child(1) {
+    --k: -3;
+    --dur: 9s;
+    --delay: -2.5s;
+  }
+  .room-right i:nth-child(2) {
+    --k: 2;
+    --dur: 7.5s;
+    --delay: -6.5s;
+  }
+
+  /* على الجوال يبقى خطّان لكل سطح: البطارية أهم من لمعة إضافية لا تُلاحظ. */
+  @media (max-width: 640px) {
+    .room-plane {
+      --cell: 54px;
+    }
+    .room-floor i:nth-child(3) {
+      display: none;
+    }
+  }
+
+  /* الطباعة لا تحتمل خلفية زخرفية: حبر مهدور وفاتورة أقل وضوحاً. */
+  @media print {
+    .room {
+      display: none;
+    }
+  }
+
+  /* Latin numerals inside an Arabic UI read faster for inventory work. */
+  .tnum {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum';
+  }
+
+  ::selection {
+    background: var(--brand-soft);
+    color: var(--text);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--brand);
+    outline-offset: 2px;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--border-strong);
+    border-radius: 999px;
+    border: 3px solid var(--bg);
+  }
+}
+
+@layer utilities {
+  .card-shadow {
+    box-shadow:
+      0 1px 2px -1px hsl(var(--shadow-color) / 0.12),
+      0 4px 16px -8px hsl(var(--shadow-color) / 0.18);
+  }
+  .lift {
+    transition:
+      transform 180ms cubic-bezier(0.22, 1, 0.36, 1),
+      box-shadow 180ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .lift:hover {
+    transform: translateY(-2px);
+    box-shadow:
+      0 2px 4px -2px hsl(var(--shadow-color) / 0.14),
+      0 12px 28px -12px hsl(var(--shadow-color) / 0.3);
+  }
+  .glass {
+    background: color-mix(in oklab, var(--surface) 78%, transparent);
+    backdrop-filter: blur(12px) saturate(140%);
+  }
+
+  /* اللوح الزجاجي المعتمد لكل البطاقات والأقسام.
+     الحدّ العلوي الفاتح يقلّد انكسار الضوء على حافة الزجاج، وهو ما يفصل اللوح
+     عن الخلفية — بدونه يذوب النص في المربعات خلفه. */
+  .panel {
+    background: var(--panel);
+    backdrop-filter: blur(var(--panel-blur)) saturate(160%);
+    -webkit-backdrop-filter: blur(var(--panel-blur)) saturate(160%);
+    box-shadow: inset 0 1px 0 0 var(--panel-edge);
+  }
+
+  /* المتصفحات التي لا تدعم backdrop-filter (فايرفوكس بإعداد قديم مثلاً) تحصل
+     على سطح معتم كامل بدل نص يطفو فوق شبكة. الجمال يسقط أولاً لا القراءة. */
+  @supports not (backdrop-filter: blur(1px)) {
+    .panel,
+    .glass {
+      background: var(--surface);
+    }
+  }
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes pop {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes shimmer {
+  100% {
+    transform: translateX(-200%);
+  }
+}
+
+/* رحلة خط الضوء من حافة الغرفة القريبة إلى العمق. الشفافية تخفت قبل النهاية
+   كي يذوب الخط في المسافة بدل أن ينطفئ فجأة عند نقطة التلاشي. */
+@keyframes room-streak {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 0, 0);
+  }
+  9% {
+    opacity: 1;
+  }
+  58% {
+    opacity: 0.5;
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(var(--travel-x, 0), var(--travel-y, 0), 0);
+  }
+}
+
+.animate-rise {
+  animation: rise 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.animate-fade {
+  animation: fade 200ms ease both;
+}
+.animate-pop {
+  animation: pop 200ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+  .lift:hover {
+    transform: none;
+  }
+  /* من طلب تقليل الحركة يحصل على غرفة ساكنة: الشبكة تبقى، الخطوط الزاحفة تُزال
+     كاملة بدل أن تتجمّد في منتصف المشهد. */
+  .room-plane i {
+    display: none;
+  }
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  body {
+    background: #fff;
+    color: #000;
+  }
+}

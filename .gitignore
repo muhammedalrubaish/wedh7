@@ -1,0 +1,16 @@
+node_modules
+dist
+dist-ssr
+*.local
+.DS_Store
+.env
+.env.*
+!.env.example
+.vite
+
+.env.local
+.env*.local
+
+# ناتج بناء TypeScript — يتغيّر مع كل build ويلوّث كل diff
+tsconfig.tsbuildinfo
+*.tsbuildinfo

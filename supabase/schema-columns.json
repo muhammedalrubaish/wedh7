@@ -1,0 +1,188 @@
+{
+  "audit_log": [
+    "id",
+    "user_id",
+    "user_name",
+    "action",
+    "entity",
+    "entity_id",
+    "details",
+    "at"
+  ],
+  "categories": [
+    "id",
+    "name",
+    "default_markup_percent",
+    "icon"
+  ],
+  "counters": [
+    "kind",
+    "value"
+  ],
+  "customers": [
+    "id",
+    "name",
+    "phone",
+    "type",
+    "vat_number",
+    "notes",
+    "created_at"
+  ],
+  "invoice_lines": [
+    "id",
+    "invoice_id",
+    "part_id",
+    "name",
+    "sku",
+    "qty",
+    "free_qty",
+    "unit_price",
+    "unit_cost",
+    "discount",
+    "tax_rate"
+  ],
+  "invoices": [
+    "id",
+    "number",
+    "customer_id",
+    "customer_name",
+    "customer_vat_number",
+    "subtotal",
+    "discount",
+    "vat_rate",
+    "vat_amount",
+    "total",
+    "payment_method",
+    "status",
+    "user_id",
+    "created_at",
+    "refunded_at",
+    "notes"
+  ],
+  "parts": [
+    "id",
+    "sku",
+    "name",
+    "name_en",
+    "category_id",
+    "supplier_id",
+    "cost",
+    "price_retail",
+    "price_wholesale",
+    "qty",
+    "reorder_point",
+    "reorder_qty",
+    "lead_time_days",
+    "location",
+    "barcode",
+    "tax_rate",
+    "notes",
+    "archived",
+    "created_at",
+    "updated_at"
+  ],
+  "profiles": [
+    "id",
+    "name",
+    "username",
+    "role",
+    "phone",
+    "active",
+    "created_at",
+    "last_login_at"
+  ],
+  "purchase_order_lines": [
+    "po_id",
+    "part_id",
+    "qty",
+    "unit_cost",
+    "received_qty"
+  ],
+  "purchase_orders": [
+    "id",
+    "code",
+    "supplier_id",
+    "customer_id",
+    "status",
+    "created_at",
+    "expected_at",
+    "received_at",
+    "created_by",
+    "notes"
+  ],
+  "return_lines": [
+    "id",
+    "return_id",
+    "part_id",
+    "name",
+    "sku",
+    "qty",
+    "unit_price",
+    "unit_cost",
+    "tax_rate"
+  ],
+  "returns": [
+    "id",
+    "number",
+    "invoice_id",
+    "invoice_number",
+    "customer_id",
+    "customer_name",
+    "subtotal",
+    "vat_amount",
+    "total",
+    "restock",
+    "reason",
+    "user_id",
+    "created_at"
+  ],
+  "role_capabilities": [
+    "role",
+    "capability"
+  ],
+  "settings": [
+    "id",
+    "shop_name",
+    "shop_name_en",
+    "vat_number",
+    "cr_number",
+    "address",
+    "phone",
+    "currency",
+    "vat_rate",
+    "vat_enabled",
+    "zatca_qr",
+    "invoice_prefix",
+    "po_prefix",
+    "return_prefix",
+    "ai_provider",
+    "ai_model"
+  ],
+  "stock_movements": [
+    "id",
+    "part_id",
+    "qty",
+    "type",
+    "unit_cost",
+    "ref",
+    "note",
+    "user_id",
+    "at"
+  ],
+  "suppliers": [
+    "id",
+    "name",
+    "phone",
+    "city",
+    "lead_time_days",
+    "notes"
+  ],
+  "user_capabilities": [
+    "user_id",
+    "capability",
+    "granted",
+    "note",
+    "granted_by",
+    "created_at"
+  ]
+}

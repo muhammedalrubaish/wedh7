@@ -1,0 +1,182 @@
+import { Suspense, lazy } from 'react'
+import { Navigate, Route, Routes } from 'react-router-dom'
+import { AppShell } from './components/AppShell'
+import { useApp } from './store/app'
+import { Card, EmptyState } from './components/ui'
+import { ShieldAlert } from 'lucide-react'
+import type { Capability } from './lib/permissions'
+
+import Login from './pages/Login'
+import { recoveryActive } from './lib/auth'
+
+const ResetPassword = lazy(() => import('./pages/ResetPassword'))
+
+// الرسوم (recharts) وقارئ الباركود (zxing) أثقل اعتماديتين هنا؛ التحميل الكسول
+// يبقيهما خارج أول رسم للصفحة على الجوال.
+const Dashboard = lazy(() => import('./pages/Dashboard'))
+const Inventory = lazy(() => import('./pages/Inventory'))
+const PartDetail = lazy(() => import('./pages/PartDetail'))
+const Pos = lazy(() => import('./pages/Pos'))
+const Scanner = lazy(() => import('./pages/Scanner'))
+const Invoices = lazy(() => import('./pages/Invoices'))
+const CustomersPage = lazy(() => import('./pages/Customers'))
+const Purchases = lazy(() => import('./pages/Purchases'))
+const Pricing = lazy(() => import('./pages/Pricing'))
+const Suppliers = lazy(() => import('./pages/Suppliers'))
+const Reports = lazy(() => import('./pages/Reports'))
+const Accountant = lazy(() => import('./pages/Accountant'))
+const UsersPage = lazy(() => import('./pages/Users'))
+const SettingsPage = lazy(() => import('./pages/Settings'))
+
+function RouteFallback() {
+  return (
+    <div className="grid place-items-center py-24">
+      <div className="size-8 animate-spin rounded-full border-2 border-border border-t-brand" />
+    </div>
+  )
+}
+
+function Guard({ cap, children }: { cap: Capability; children: React.ReactNode }) {
+  const { can } = useApp()
+  if (can(cap)) return <>{children}</>
+  return (
+    <Card>
+      <EmptyState
+        icon={<ShieldAlert className="size-6" />}
+        title="لا تملك صلاحية لهذه الصفحة"
+        description="تواصل مع المدير إذا كنت تحتاج الوصول إلى هذا القسم."
+      />
+    </Card>
+  )
+}
+
+export default function App() {
+  const { user } = useApp()
+
+  // مسار الاسترجاع يسبق كل شيء، حتى وإن صارت الجلسة قائمة: جلسة الرابط مؤقتة،
+  // وترك المستخدم يتصفّح بها يعني أن تنتهي وهو لا يعرف كلمته بعد.
+  if (recoveryActive()) {
+    return (
+      <Suspense fallback={<RouteFallback />}>
+        <ResetPassword />
+      </Suspense>
+    )
+  }
+
+  if (!user) return <Login />
+
+  return (
+    <Suspense fallback={<RouteFallback />}>
+      <Routes>
+        <Route element={<AppShell />}>
+          <Route index element={<Dashboard />} />
+          <Route
+            path="inventory"
+            element={
+              <Guard cap="inventory.view">
+                <Inventory />
+              </Guard>
+            }
+          />
+          <Route
+            path="inventory/:id"
+            element={
+              <Guard cap="inventory.view">
+                <PartDetail />
+              </Guard>
+            }
+          />
+          <Route
+            path="pos"
+            element={
+              <Guard cap="sales.create">
+                <Pos />
+              </Guard>
+            }
+          />
+          <Route
+            path="scan"
+            element={
+              <Guard cap="inventory.view">
+                <Scanner />
+              </Guard>
+            }
+          />
+          <Route
+            path="invoices"
+            element={
+              <Guard cap="sales.create">
+                <Invoices />
+              </Guard>
+            }
+          />
+          <Route
+            path="customers"
+            element={
+              <Guard cap="sales.create">
+                <CustomersPage />
+              </Guard>
+            }
+          />
+          <Route
+            path="purchases"
+            element={
+              <Guard cap="purchase.view">
+                <Purchases />
+              </Guard>
+            }
+          />
+          <Route
+            path="pricing"
+            element={
+              <Guard cap="pricing.view">
+                <Pricing />
+              </Guard>
+            }
+          />
+          <Route
+            path="suppliers"
+            element={
+              <Guard cap="purchase.view">
+                <Suppliers />
+              </Guard>
+            }
+          />
+          <Route
+            path="reports"
+            element={
+              <Guard cap="reports.view">
+                <Reports />
+              </Guard>
+            }
+          />
+          <Route
+            path="accountant"
+            element={
+              <Guard cap="ai.use">
+                <Accountant />
+              </Guard>
+            }
+          />
+          <Route
+            path="users"
+            element={
+              <Guard cap="users.manage">
+                <UsersPage />
+              </Guard>
+            }
+          />
+          <Route
+            path="settings"
+            element={
+              <Guard cap="settings.manage">
+                <SettingsPage />
+              </Guard>
+            }
+          />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Route>
+      </Routes>
+    </Suspense>
+  )
+}
