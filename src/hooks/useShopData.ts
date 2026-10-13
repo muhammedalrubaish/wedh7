@@ -5,6 +5,8 @@ import type {
   Customer,
   Invoice,
   Part,
+  PurchaseBill,
+  PurchaseItem,
   PurchaseOrder,
   ReturnNote,
   StockMovement,
@@ -36,6 +38,12 @@ export const useReturns = (): ReturnNote[] =>
 
 export const useMovements = (): StockMovement[] =>
   useLiveQuery(() => db.movements.toArray(), [], EMPTY as unknown as StockMovement[])
+
+export const usePurchaseItems = (): PurchaseItem[] =>
+  useLiveQuery(() => db.purchaseItems.toArray(), [], EMPTY as unknown as PurchaseItem[])
+
+export const usePurchaseBills = (): PurchaseBill[] =>
+  useLiveQuery(() => db.purchaseBills.toArray(), [], EMPTY as unknown as PurchaseBill[])
 
 export const usePurchaseOrders = (): PurchaseOrder[] =>
   useLiveQuery(() => db.purchaseOrders.toArray(), [], EMPTY as unknown as PurchaseOrder[])

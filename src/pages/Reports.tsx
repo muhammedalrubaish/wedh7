@@ -31,6 +31,9 @@ import {
   changePercent,
   dailySeries,
   deadStock,
+  PURCHASE_KINDS,
+  PURCHASE_KIND_LABELS,
+  purchasesSummary,
   summarize,
   topParts,
   type PartPerformance,
@@ -43,6 +46,7 @@ import {
   monthLabel,
   num,
   relative,
+  round2,
   shortDay,
   startOfDay,
 } from '@/lib/format'
@@ -54,6 +58,7 @@ import {
   useCustomers,
   useInvoices,
   useMovements,
+  usePurchaseBills,
   useReturns,
 } from '@/hooks/useShopData'
 
@@ -98,6 +103,7 @@ export default function Reports() {
   const customers = useCustomers()
   const parts = useActiveParts()
   const movements = useMovements()
+  const bills = usePurchaseBills()
   const categories = useCategories()
   const users = useLiveQuery(() => db.users.toArray(), [], [])
 
@@ -202,6 +208,9 @@ export default function Reports() {
   }, [invoices, users, from, to])
 
   const showMoney = can('reports.financial')
+  // `to` نهاية اليوم شاملة، والملخّص يأخذ نهاية مفتوحة — فيُزاد ميلي ثانية.
+  const spend = useMemo(() => purchasesSummary(bills, from, to + 1), [bills, from, to])
+  const showSpend = showMoney && can('purchase.view') && spend.bills > 0
 
   function exportCsv() {
     const rows: string[][] = [
@@ -374,6 +383,41 @@ export default function Reports() {
           sub={current.returned > 0 ? money(current.returned, { compact: true }) : 'لا مرتجعات'}
         />
       </div>
+
+      {/* الصرف بجانب الربح لا مطروحاً منه: الربح يحسب تكلفة ما بيع، والمشتريات
+      نقدٌ خرج في الفترة — فرن اليوم أو كرتون الشهر القادم لا يخصّان مبيعات هذه الفترة. */}
+      {showSpend && (
+        <Card className="p-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-[13px] text-muted">مشتريات المعمل في الفترة</p>
+              <p className="tnum mt-1 text-xl font-bold break-words">{money(spend.total)}</p>
+              <p className="tnum mt-0.5 text-[12px] text-muted">
+                {num(spend.bills)} فاتورة مشتريات
+              </p>
+            </div>
+            <div className="min-w-0 text-left">
+              <p className="text-[13px] text-muted">المبيعات ناقص المشتريات</p>
+              <p
+                className={cn(
+                  'tnum mt-1 text-xl font-bold break-words',
+                  current.revenue - spend.total < 0 ? 'text-danger' : 'text-ok',
+                )}
+              >
+                {money(round2(current.revenue - spend.total))}
+              </p>
+              <p className="mt-0.5 text-[12px] text-muted">نقد داخل ناقص نقد خارج — ليس الربح</p>
+            </div>
+          </div>
+          <div className="mt-3 flex flex-wrap gap-1.5 border-t border-border pt-3">
+            {PURCHASE_KINDS.filter((k) => spend.byKind[k] > 0).map((k) => (
+              <Badge key={k} tone="neutral">
+                {PURCHASE_KIND_LABELS[k]} <span className="tnum">{money(spend.byKind[k])}</span>
+              </Badge>
+            ))}
+          </div>
+        </Card>
+      )}
 
       {/* سؤال العميل الأول: «كم بعت على كل محل» — أول جدول في الصفحة. */}
       <Card>

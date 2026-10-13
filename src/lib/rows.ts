@@ -20,6 +20,10 @@ import type {
   Invoice,
   InvoiceLine,
   Part,
+  PurchaseBill,
+  PurchaseBillLine,
+  PurchaseItem,
+  PurchaseKind,
   PurchaseOrder,
   PurchaseOrderLine,
   ReturnLine,
@@ -120,6 +124,53 @@ export const fromSupplier = (v: Supplier): Row => ({
   lead_time_days: v.leadTimeDays,
   notes: v.notes ?? null,
 })
+
+export const toPurchaseItem = (r: Row): PurchaseItem => ({
+  id: s(r.id),
+  name: s(r.name),
+  kind: s(r.kind) as PurchaseKind,
+  unit: s(r.unit),
+  notes: os(r.notes),
+  archived: b(r.archived),
+  createdAt: toMs(r.created_at),
+})
+
+export const fromPurchaseItem = (v: PurchaseItem): Row => ({
+  id: v.id,
+  name: v.name,
+  kind: v.kind,
+  unit: v.unit,
+  notes: v.notes ?? null,
+  archived: v.archived,
+})
+
+export const toPurchaseBillLine = (r: Row): PurchaseBillLine => ({
+  itemId: os(r.item_id),
+  name: s(r.name),
+  kind: s(r.kind) as PurchaseKind,
+  unit: s(r.unit),
+  qty: n(r.qty),
+  unitPrice: n(r.unit_price),
+})
+
+/** البنود تصل مضمّنة (`select=*,purchase_bill_lines(*)`) — مرتّبة برقم السطر. */
+export function toPurchaseBill(r: Row): PurchaseBill {
+  const lines = Array.isArray(r.purchase_bill_lines)
+    ? [...(r.purchase_bill_lines as Row[])].sort((a, z) => n(a.line_no) - n(z.line_no))
+    : []
+  return {
+    id: s(r.id),
+    supplierId: os(r.supplier_id),
+    supplierName: os(r.supplier_name),
+    ref: os(r.ref),
+    purchasedAt: toMs(r.purchased_at),
+    total: n(r.total),
+    notes: os(r.notes),
+    userId: os(r.user_id),
+    createdAt: toMs(r.created_at),
+    lines: lines.map(toPurchaseBillLine),
+  }
+}
 
 export const toCustomer = (r: Row): Customer => ({
   id: s(r.id),

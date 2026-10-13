@@ -7,6 +7,8 @@ import type {
   Invoice,
   InvoiceLine,
   Part,
+  PurchaseBill,
+  PurchaseItem,
   PurchaseOrder,
   ReturnNote,
   StockMovement,
@@ -38,6 +40,19 @@ const SUPPLIERS: Array<Omit<Supplier, 'id'>> = [
   { name: 'مصنع التغليف الحديث', phone: '0551234567', city: 'الرياض', leadTimeDays: 7 },
   { name: 'مؤسسة المكسرات الذهبية', phone: '0532223344', city: 'جدة', leadTimeDays: 4 },
   { name: 'شركة الدقيق والسكر', phone: '0509876543', city: 'الدمام', leadTimeDays: 3 },
+  { name: 'مؤسسة الألبان الطازجة', phone: '0544445555', city: 'الرياض', leadTimeDays: 1 },
+]
+
+/** أصناف المشتريات بأسعار تقريبية للسوق: [الاسم، النوع، الوحدة، السعر] */
+const PURCHASE_ITEMS: Array<[string, PurchaseItem['kind'], string, number]> = [
+  ['قشطة', 'ingredient', 'علبة', 6.5],
+  ['زبدة', 'ingredient', 'كيلو', 32],
+  ['جبن كريمي', 'ingredient', 'كيلو', 28],
+  ['كريمة خفق', 'ingredient', 'لتر', 18],
+  ['بسكويت', 'ingredient', 'كرتون', 45],
+  ['سكر', 'ingredient', 'كيس ١٠ كيلو', 38],
+  ['كرتون بوكس', 'packaging', 'حزمة ٥٠', 120],
+  ['ملصقات الشعار', 'packaging', 'رول', 60],
 ]
 
 interface ProductSpec {
@@ -430,6 +445,111 @@ export async function seed(): Promise<void> {
     },
   ]
 
+  // مشتريات أسبوعية لثمانية أسابيع، وإيجار وفرن مرة: ليظهر الفرق بين صرفٍ
+  // يتكرّر وصرفٍ لمرة واحدة في شاشة المشتريات.
+  const purchaseItems: PurchaseItem[] = PURCHASE_ITEMS.map(([name, kind, unit], i) => ({
+    id: `pi_${i + 1}`,
+    name,
+    kind,
+    unit,
+    archived: false,
+    createdAt: now - 70 * 86_400_000,
+  }))
+  purchaseItems.push(
+    {
+      id: 'pi_rent',
+      name: 'إيجار المعمل',
+      kind: 'expense',
+      unit: 'شهر',
+      archived: false,
+      createdAt: now - 70 * 86_400_000,
+    },
+    {
+      id: 'pi_oven',
+      name: 'فرن كهربائي',
+      kind: 'equipment',
+      unit: 'حبة',
+      archived: false,
+      createdAt: now - 70 * 86_400_000,
+    },
+  )
+  const purchaseBills: PurchaseBill[] = []
+  const billLine = (i: number, qty: number) => {
+    const it = purchaseItems[i]
+    const price = round2(PURCHASE_ITEMS[i][3] * between(0.95, 1.08))
+    return { itemId: it.id, name: it.name, kind: it.kind, unit: it.unit, qty, unitPrice: price }
+  }
+  for (let w = 8; w >= 0; w--) {
+    const at = startOfDay(new Date(now - w * 7 * 86_400_000)) + 10 * 3_600_000
+    const dairy = [0, 1, 2, 3].map((i) => billLine(i, Math.round(between(8, 30))))
+    purchaseBills.push({
+      id: `pb_d${w}`,
+      supplierId: 'sup_4',
+      supplierName: suppliers[3]?.name,
+      purchasedAt: at,
+      lines: dairy,
+      total: round2(dairy.reduce((n, l) => n + round2(l.qty * l.unitPrice), 0)),
+      createdAt: at,
+    })
+    if (w % 3 === 0) {
+      const dry = [billLine(4, Math.round(between(2, 5))), billLine(5, Math.round(between(2, 4)))]
+      const pack = [billLine(6, 2), billLine(7, 1)]
+      for (const [key, sup, lines] of [
+        ['f', 2, dry],
+        ['p', 0, pack],
+      ] as const) {
+        purchaseBills.push({
+          id: `pb_${key}${w}`,
+          supplierId: suppliers[sup].id,
+          supplierName: suppliers[sup].name,
+          purchasedAt: at + 3_600_000,
+          lines: [...lines],
+          total: round2(lines.reduce((n, l) => n + round2(l.qty * l.unitPrice), 0)),
+          createdAt: at,
+        })
+      }
+    }
+  }
+  for (const m of [0, 1]) {
+    const d = new Date(now)
+    const at = new Date(d.getFullYear(), d.getMonth() - m, 1, 12).getTime()
+    purchaseBills.push({
+      id: `pb_rent${m}`,
+      purchasedAt: at,
+      notes: 'إيجار الشهر',
+      lines: [
+        {
+          itemId: 'pi_rent',
+          name: 'إيجار المعمل',
+          kind: 'expense',
+          unit: 'شهر',
+          qty: 1,
+          unitPrice: 3500,
+        },
+      ],
+      total: 3500,
+      createdAt: at,
+    })
+  }
+  purchaseBills.push({
+    id: 'pb_oven',
+    supplierName: undefined,
+    purchasedAt: now - 40 * 86_400_000,
+    ref: 'F-2291',
+    lines: [
+      {
+        itemId: 'pi_oven',
+        name: 'فرن كهربائي',
+        kind: 'equipment',
+        unit: 'حبة',
+        qty: 1,
+        unitPrice: 4200,
+      },
+    ],
+    total: 4200,
+    createdAt: now - 40 * 86_400_000,
+  })
+
   await db.transaction(
     'rw',
     [
@@ -440,6 +560,8 @@ export async function seed(): Promise<void> {
       db.parts,
       db.movements,
       db.purchaseOrders,
+      db.purchaseItems,
+      db.purchaseBills,
       db.invoices,
       db.returns,
       db.settings,
@@ -452,6 +574,8 @@ export async function seed(): Promise<void> {
       await db.parts.bulkPut(parts)
       await db.movements.bulkPut(movements)
       await db.purchaseOrders.bulkPut(purchaseOrders)
+      await db.purchaseItems.bulkPut(purchaseItems)
+      await db.purchaseBills.bulkPut(purchaseBills)
       await db.invoices.bulkPut(invoices)
       await db.returns.bulkPut(returns)
       await db.settings.put({

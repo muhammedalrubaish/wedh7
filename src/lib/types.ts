@@ -127,6 +127,52 @@ export interface PurchaseOrder {
   notes?: string
 }
 
+/**
+ * نوع صنف المشتريات. العميل طلب أن «يحدد نوعه»: الفرن يُشترى مرة، والقشطة كل
+ * أسبوع، والإيجار كل شهر — جمعها في رقم واحد يضلّل قراءة الشهر.
+ */
+export type PurchaseKind = 'ingredient' | 'packaging' | 'equipment' | 'expense'
+
+/**
+ * صنف يشتريه المعمل غير البوكسات: قشطة، كرتون، فرن، إيجار…
+ * لا يُباع ولا رصيد له — يُتابَع بما يُصرف عليه في فواتير المشتريات.
+ */
+export interface PurchaseItem {
+  id: string
+  name: string
+  kind: PurchaseKind
+  /** الوحدة المعتادة (كيلو، علبة، كرتون، شهر) — البند يستطيع تجاوزها. */
+  unit: string
+  notes?: string
+  archived: boolean
+  createdAt: number
+}
+
+/** بند فاتورة مشتريات — الاسم والنوع والوحدة لقطة وقت الشراء. */
+export interface PurchaseBillLine {
+  itemId?: string
+  name: string
+  kind: PurchaseKind
+  unit: string
+  qty: number
+  unitPrice: number
+}
+
+/** فاتورة مشتريات. الإجمالي يحسبه الخادم من البنود. */
+export interface PurchaseBill {
+  id: string
+  supplierId?: string
+  supplierName?: string
+  /** رقم فاتورة المورد الورقية إن وُجد. */
+  ref?: string
+  purchasedAt: number
+  total: number
+  notes?: string
+  userId?: string
+  createdAt: number
+  lines: PurchaseBillLine[]
+}
+
 /** قطاعي = زبون يشتري من المحل. جملة = محل أو كافيه يأخذ بوكسات بسعر الجملة. */
 export type CustomerType = 'retail' | 'wholesale'
 

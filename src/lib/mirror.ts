@@ -14,13 +14,15 @@
  * كتابة يمرّ بالخادم أولاً ثم يحدّث المرآة — انظر `repo.ts`.
  */
 import { db, getSettings } from './db'
-import { humanError, requireClient } from './supabase'
+import { humanError, isMissingSchema, requireClient } from './supabase'
 import {
   toCategory,
   toCustomer,
   toInvoice,
   toMovement,
   toPart,
+  toPurchaseBill,
+  toPurchaseItem,
   toPurchaseOrder,
   toReturnNote,
   toSettings,
@@ -36,6 +38,15 @@ import {
  * `parts.qty`. فالسقف يقصّ عرض التاريخ القديم فقط، ولا يُفسد رقماً.
  */
 const MOVEMENT_WINDOW = 5000
+
+/**
+ * هل جداول المشتريات موجودة على الخادم؟ تُضبط مع كل سحب.
+ *
+ * ترحيلها لاحق للأول ويطبّقه صاحب المحل يدوياً، فقد تعمل نسخة الواجهة الجديدة
+ * على قاعدة لم تُحدَّث بعد. غيابها لا يُوقف السحب كله — باقي النظام سليم — لكن
+ * شاشة المشتريات تحتاج أن تعرف لتقول السبب بدل قائمة فارغة توحي بأن لا شيء مسجّل.
+ */
+export let purchasesSchemaReady = true
 
 const rows = <T>(data: unknown, map: (r: Row) => T): T[] =>
   Array.isArray(data) ? (data as Row[]).map(map) : []
@@ -64,25 +75,46 @@ export async function pullAll(): Promise<void> {
   const client = requireClient()
   const local = await getSettings()
 
-  const [cats, sups, custs, parts, movs, invs, invLines, rets, retLines, pos, settings, profiles] =
-    await Promise.all([
-      client.from('categories').select('*'),
-      client.from('suppliers').select('*'),
-      client.from('customers').select('*'),
-      client.from('parts_v').select('*'),
-      client
-        .from('stock_movements_v')
-        .select('*')
-        .order('at', { ascending: false })
-        .limit(MOVEMENT_WINDOW),
-      client.from('invoices_v').select('*'),
-      client.from('invoice_lines_v').select('*'),
-      client.from('returns_v').select('*'),
-      client.from('return_lines_v').select('*'),
-      client.from('purchase_orders').select('*, purchase_order_lines(*)'),
-      client.from('settings_v').select('*').eq('id', 'app').maybeSingle(),
-      client.from('profiles').select('*'),
-    ])
+  const [
+    cats,
+    sups,
+    custs,
+    parts,
+    movs,
+    invs,
+    invLines,
+    rets,
+    retLines,
+    pos,
+    settings,
+    profiles,
+    items,
+    bills,
+  ] = await Promise.all([
+    client.from('categories').select('*'),
+    client.from('suppliers').select('*'),
+    client.from('customers').select('*'),
+    client.from('parts_v').select('*'),
+    client
+      .from('stock_movements_v')
+      .select('*')
+      .order('at', { ascending: false })
+      .limit(MOVEMENT_WINDOW),
+    client.from('invoices_v').select('*'),
+    client.from('invoice_lines_v').select('*'),
+    client.from('returns_v').select('*'),
+    client.from('return_lines_v').select('*'),
+    client.from('purchase_orders').select('*, purchase_order_lines(*)'),
+    client.from('settings_v').select('*').eq('id', 'app').maybeSingle(),
+    client.from('profiles').select('*'),
+    client.from('purchase_items').select('*'),
+    client.from('purchase_bills').select('*, purchase_bill_lines(*)'),
+  ])
+
+  purchasesSchemaReady = !isMissingSchema(items.error) && !isMissingSchema(bills.error)
+  for (const r of [items, bills]) {
+    if (r.error && !isMissingSchema(r.error)) throw new Error(humanError(r.error))
+  }
 
   // أول خطأ يُرمى ويُوقف السحب: مرآة نصف ممتلئة أسوأ من مرآة قديمة، لأنها
   // تبدو صحيحة. الشاشات تُبقي ما كان معروضاً حتى ينجح سحب كامل.
@@ -119,6 +151,8 @@ export async function pullAll(): Promise<void> {
       db.invoices,
       db.returns,
       db.purchaseOrders,
+      db.purchaseItems,
+      db.purchaseBills,
       db.settings,
       db.users,
     ],
@@ -132,6 +166,8 @@ export async function pullAll(): Promise<void> {
         db.invoices.clear(),
         db.returns.clear(),
         db.purchaseOrders.clear(),
+        db.purchaseItems.clear(),
+        db.purchaseBills.clear(),
         db.users.clear(),
       ])
       await Promise.all([
@@ -151,6 +187,8 @@ export async function pullAll(): Promise<void> {
           ),
         ),
         db.purchaseOrders.bulkPut(rows(pos.data, (r) => toPurchaseOrder(r))),
+        db.purchaseItems.bulkPut(rows(items.data, toPurchaseItem)),
+        db.purchaseBills.bulkPut(rows(bills.data, toPurchaseBill)),
         // الحسابات في Supabase Auth، لكن **أسماءها** تحتاجها الشاشات: عمود
         // البائع في الفواتير وأداء الموظفين في التقارير يربطان `userId` باسم.
         // الاستثناءات لا تُسحب: هذه نسخة عرض لا مصدر صلاحية — الصلاحية تُقرَّر

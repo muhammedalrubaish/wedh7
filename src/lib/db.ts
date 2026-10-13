@@ -5,6 +5,8 @@ import type {
   Customer,
   Invoice,
   Part,
+  PurchaseBill,
+  PurchaseItem,
   PurchaseOrder,
   ReturnNote,
   Settings,
@@ -28,6 +30,8 @@ export class ShopDB extends Dexie {
   parts!: Table<Part, string>
   movements!: Table<StockMovement, string>
   purchaseOrders!: Table<PurchaseOrder, string>
+  purchaseItems!: Table<PurchaseItem, string>
+  purchaseBills!: Table<PurchaseBill, string>
   invoices!: Table<Invoice, string>
   returns!: Table<ReturnNote, string>
   settings!: Table<Settings, string>
@@ -49,6 +53,11 @@ export class ShopDB extends Dexie {
       returns: 'id, number, invoiceId, customerId, createdAt, userId',
       settings: 'id',
       audit: 'id, at, userId, entity',
+    })
+    // الإصدار ٢ يضيف جداول فقط: Dexie يرحّل المتصفحات القديمة دون مساس بما فيها.
+    this.version(2).stores({
+      purchaseItems: 'id, name, kind, archived',
+      purchaseBills: 'id, purchasedAt, supplierId',
     })
   }
 }

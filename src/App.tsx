@@ -21,6 +21,7 @@ const Scanner = lazy(() => import('./pages/Scanner'))
 const Invoices = lazy(() => import('./pages/Invoices'))
 const CustomersPage = lazy(() => import('./pages/Customers'))
 const Purchases = lazy(() => import('./pages/Purchases'))
+const PurchaseBills = lazy(() => import('./pages/PurchaseBills'))
 const Pricing = lazy(() => import('./pages/Pricing'))
 const Suppliers = lazy(() => import('./pages/Suppliers'))
 const Reports = lazy(() => import('./pages/Reports'))
@@ -124,6 +125,14 @@ export default function App() {
             element={
               <Guard cap="purchase.view">
                 <Purchases />
+              </Guard>
+            }
+          />
+          <Route
+            path="bills"
+            element={
+              <Guard cap="purchase.view">
+                <PurchaseBills />
               </Guard>
             }
           />

@@ -91,6 +91,36 @@
     "created_at",
     "last_login_at"
   ],
+  "purchase_bill_lines": [
+    "bill_id",
+    "line_no",
+    "item_id",
+    "name",
+    "kind",
+    "unit",
+    "qty",
+    "unit_price"
+  ],
+  "purchase_bills": [
+    "id",
+    "supplier_id",
+    "supplier_name",
+    "ref",
+    "purchased_at",
+    "total",
+    "notes",
+    "user_id",
+    "created_at"
+  ],
+  "purchase_items": [
+    "id",
+    "name",
+    "kind",
+    "unit",
+    "notes",
+    "archived",
+    "created_at"
+  ],
   "purchase_order_lines": [
     "po_id",
     "part_id",

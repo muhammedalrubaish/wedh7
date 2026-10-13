@@ -107,6 +107,17 @@ export function requireClient(): SupabaseClient {
  * المحاولة على بيعة نجحت أصلاً. التمييز بين «لا اتصال» و«ممنوع» و«رصيد لا يكفي»
  * هو الفرق بين قرار صحيح وقرار خاطئ خلف الكاونتر.
  */
+/**
+ * جدول أو دالة غير موجودة على الخادم: الواجهة أحدث من آخر ترحيل طُبّق.
+ * `42P01` من Postgres مباشرة، و`PGRST205`/`PGRST202` من PostgREST حين لا يجد
+ * الجدول أو الدالة في مخطّطه المخزَّن.
+ */
+export function isMissingSchema(err: unknown): boolean {
+  if (!err) return false
+  const code = (err as { code?: string }).code ?? ''
+  return code === '42P01' || code === 'PGRST205' || code === 'PGRST202'
+}
+
 export function humanError(err: unknown): string {
   if (!navigator.onLine) {
     return 'لا يوجد اتصال بالإنترنت. البيع يحتاج اتصالاً — تصفّح المنتجات والأسعار ما زال يعمل.'
@@ -118,6 +129,9 @@ export function humanError(err: unknown): string {
     return msg.startsWith('ليس لديك') || /[؀-ۿ]/.test(msg)
       ? msg // رسالة الدالة نفسها عربية أصلاً وأدقّ من أي تعميم هنا
       : 'ما عندك صلاحية لهذه العملية.'
+  }
+  if (isMissingSchema(err)) {
+    return 'قاعدة البيانات تحتاج تحديثاً: شغّل آخر ترحيل من مجلد supabase/migrations في SQL Editor.'
   }
   if (code === '23505') return 'هذه القيمة مستخدمة من قبل.'
   if (code === '23503') return 'العملية تشير إلى سجل غير موجود.'

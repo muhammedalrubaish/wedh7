@@ -39,6 +39,11 @@ const writers = [
   ['categories', R.fromCategory, { id: 'c1', name: 'ش', defaultMarkupPercent: 30, icon: 'x' }],
   ['suppliers', R.fromSupplier, { id: 's1', name: 'م', leadTimeDays: 3 }],
   [
+    'purchase_items',
+    R.fromPurchaseItem,
+    { id: 'pi1', name: 'قشطة', kind: 'ingredient', unit: 'علبة', archived: false, createdAt: 1 },
+  ],
+  [
     'customers',
     R.fromCustomer,
     { id: 'u1', name: 'ع', type: 'wholesale', createdAt: 1750000000000 },

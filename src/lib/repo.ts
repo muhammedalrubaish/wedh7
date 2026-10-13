@@ -27,11 +27,13 @@ import { round2 } from './format'
 import {
   fromCustomer,
   fromPart,
+  fromPurchaseItem,
   fromPurchaseOrder,
   fromPurchaseOrderLine,
   fromAuditEntry,
   fromSettings,
   toInvoice,
+  toPurchaseBill,
   toPurchaseOrder,
   toReturnNote,
 } from './rows'
@@ -41,6 +43,8 @@ import type {
   Invoice,
   Part,
   PaymentMethod,
+  PurchaseBill,
+  PurchaseItem,
   PurchaseOrder,
   ReturnLine,
   ReturnNote,
@@ -691,6 +695,137 @@ export async function saveSettings(patch: Partial<Settings>): Promise<Settings> 
  * بيعة تمّت على الخادم فعلاً. يُبتلع الخطأ ويُسجَّل في الطرفية — وهذا
  * الاستثناء الوحيد لقاعدة «لا تبتلع خطأً».
  */
+/* -------------------------------------------------------------------------- */
+/* فواتير المشتريات (مكونات، تغليف، أدوات، مصاريف)                             */
+/* -------------------------------------------------------------------------- */
+
+export async function createPurchaseItem(
+  draft: Omit<PurchaseItem, 'id' | 'createdAt' | 'archived'>,
+): Promise<PurchaseItem> {
+  const item: PurchaseItem = {
+    ...draft,
+    name: draft.name.trim(),
+    unit: draft.unit.trim() || 'حبة',
+    id: uid('pi_'),
+    archived: false,
+    createdAt: Date.now(),
+  }
+  if (!item.name) throw new Error('اكتب اسم الصنف.')
+  const all = await db.purchaseItems.toArray()
+  // الخادم يرفض التكرار بفهرس فريد، لكن رسالته عامة؛ هنا تُسمّى المشكلة باسمها.
+  if (all.some((x) => x.name.trim().toLowerCase() === item.name.toLowerCase())) {
+    throw new Error(`الصنف «${item.name}» موجود من قبل — اختره من القائمة.`)
+  }
+  if (cloudEnabled) {
+    guardOnline()
+    const { error } = await requireClient().from('purchase_items').insert(fromPurchaseItem(item))
+    if (error) fail(error)
+  }
+  await db.purchaseItems.put(item)
+  return item
+}
+
+export async function updatePurchaseItem(id: string, patch: Partial<PurchaseItem>): Promise<void> {
+  if (cloudEnabled) {
+    guardOnline()
+    const row: Record<string, unknown> = {}
+    if (patch.name !== undefined) row.name = patch.name.trim()
+    if (patch.kind !== undefined) row.kind = patch.kind
+    if (patch.unit !== undefined) row.unit = patch.unit.trim()
+    if (patch.notes !== undefined) row.notes = patch.notes || null
+    if (patch.archived !== undefined) row.archived = patch.archived
+    const { error } = await requireClient().from('purchase_items').update(row).eq('id', id)
+    if (error) fail(error)
+  }
+  await db.purchaseItems.update(id, patch)
+}
+
+export interface PurchaseBillInput {
+  supplierId?: string
+  purchasedAt: number
+  ref?: string
+  notes?: string
+  lines: Array<{ itemId: string; qty: number; unitPrice: number; unit?: string }>
+}
+
+/**
+ * الخادم يحسب الإجمالي ويلتقط اسم الصنف ونوعه — لا يُرسل المتصفح مجموعاً.
+ * محلياً تُطبَّق نفس المعادلة: تقريب كل بند ثم الجمع، كما يُطبع على الفاتورة.
+ */
+export async function createPurchaseBill(input: PurchaseBillInput): Promise<PurchaseBill> {
+  if (input.lines.length === 0) throw new Error('أضف بنداً واحداً على الأقل.')
+  for (const l of input.lines) {
+    if (!(l.qty > 0)) throw new Error('الكمية في كل بند يجب أن تكون أكبر من صفر.')
+    if (!(l.unitPrice >= 0)) throw new Error('السعر في كل بند يجب ألّا يكون سالباً.')
+  }
+
+  if (!cloudEnabled) {
+    const items = new Map((await db.purchaseItems.toArray()).map((x) => [x.id, x]))
+    const supplier = input.supplierId ? await db.suppliers.get(input.supplierId) : undefined
+    const lines = input.lines.map((l) => {
+      const item = items.get(l.itemId)
+      if (!item) throw new Error('أحد الأصناف في الفاتورة غير موجود.')
+      return {
+        itemId: item.id,
+        name: item.name,
+        kind: item.kind,
+        unit: l.unit?.trim() || item.unit,
+        qty: l.qty,
+        unitPrice: l.unitPrice,
+      }
+    })
+    const bill: PurchaseBill = {
+      id: uid('pb_'),
+      supplierId: supplier?.id,
+      supplierName: supplier?.name,
+      ref: input.ref?.trim() || undefined,
+      purchasedAt: input.purchasedAt,
+      total: round2(lines.reduce((n, l) => n + round2(l.qty * l.unitPrice), 0)),
+      notes: input.notes?.trim() || undefined,
+      createdAt: Date.now(),
+      lines,
+    }
+    await db.purchaseBills.put(bill)
+    return bill
+  }
+
+  guardOnline()
+  const client = requireClient()
+  const { data, error } = await client.rpc('create_purchase_bill', {
+    p_supplier_id: input.supplierId ?? null,
+    p_purchased_at: new Date(input.purchasedAt).toISOString(),
+    p_ref: input.ref ?? null,
+    p_notes: input.notes ?? null,
+    p_lines: input.lines.map((l) => ({
+      item_id: l.itemId,
+      qty: l.qty,
+      unit_price: l.unitPrice,
+      unit: l.unit ?? null,
+    })),
+  })
+  if (error) fail(error)
+  // الدالة تُرجع رأس الفاتورة وحده؛ البنود بلقطاتها تُقرأ من الخادم لا تُخمَّن.
+  const { data: full, error: readErr } = await client
+    .from('purchase_bills')
+    .select('*, purchase_bill_lines(*)')
+    .eq('id', (data as { id: string }).id)
+    .single()
+  if (readErr) fail(readErr)
+  const bill = toPurchaseBill(full as Record<string, unknown>)
+  await db.purchaseBills.put(bill)
+  return bill
+}
+
+/** التصحيح حذفٌ ثم إعادة إدخال — لا تعديل صامت لبنود فاتورة محفوظة. */
+export async function deletePurchaseBill(id: string): Promise<void> {
+  if (cloudEnabled) {
+    guardOnline()
+    const { error } = await requireClient().from('purchase_bills').delete().eq('id', id)
+    if (error) fail(error)
+  }
+  await db.purchaseBills.delete(id)
+}
+
 export async function audit(
   user: User,
   action: string,

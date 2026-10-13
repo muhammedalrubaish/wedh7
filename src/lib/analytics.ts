@@ -3,6 +3,8 @@ import type {
   Invoice,
   InvoiceLine,
   Part,
+  PurchaseBill,
+  PurchaseKind,
   PurchaseOrder,
   ReorderSuggestion,
   ReturnNote,
@@ -408,4 +410,68 @@ export function inventoryValue(parts: Part[]): { cost: number; retail: number; u
 export function changePercent(current: number, previous: number): number | null {
   if (!previous) return current ? null : 0
   return round2(((current - previous) / Math.abs(previous)) * 100)
+}
+
+/* -------------------------------------------------------------------------- */
+/* المشتريات                                                                   */
+/* -------------------------------------------------------------------------- */
+
+export const PURCHASE_KIND_LABELS: Record<PurchaseKind, string> = {
+  ingredient: 'مكونات',
+  packaging: 'تغليف',
+  equipment: 'أدوات ومعدات',
+  expense: 'مصاريف',
+}
+
+export const PURCHASE_KINDS = Object.keys(PURCHASE_KIND_LABELS) as PurchaseKind[]
+
+export interface PurchasesSummary {
+  total: number
+  bills: number
+  byKind: Record<PurchaseKind, number>
+  /** الأصناف مرتّبة بما صُرف عليها — أين يذهب المال فعلاً. */
+  items: Array<{ name: string; kind: PurchaseKind; unit: string; qty: number; total: number }>
+}
+
+/**
+ * ما صُرف في الفترة `[from, to)` حسب تاريخ الشراء لا تاريخ الإدخال: فاتورة الأحد
+ * تُدخل يوم الثلاثاء تُحسب يوم الأحد.
+ *
+ * ⚠️ هذا صرف نقدي لا تكلفة بضاعة مباعة: كرتون اشتُري اليوم قد يُستهلك بعد شهر،
+ * والفرن يخدم سنوات. لذلك لا يُطرح من «الربح» في التقارير — يُعرض بجانبه.
+ */
+export function purchasesSummary(
+  bills: PurchaseBill[],
+  from: number,
+  to: number,
+): PurchasesSummary {
+  const byKind = Object.fromEntries(PURCHASE_KINDS.map((k) => [k, 0])) as Record<
+    PurchaseKind,
+    number
+  >
+  const items = new Map<string, PurchasesSummary['items'][number]>()
+  let total = 0
+  let count = 0
+  for (const bill of bills) {
+    if (bill.purchasedAt < from || bill.purchasedAt >= to) continue
+    count++
+    total += bill.total
+    for (const l of bill.lines) {
+      const amount = round2(l.qty * l.unitPrice)
+      byKind[l.kind] = (byKind[l.kind] ?? 0) + amount
+      // التجميع بالاسم والوحدة معاً: «قشطة بالعلبة» و«قشطة بالكرتون» لا تُجمع كمياتهما.
+      const key = `${l.name}\u0000${l.unit}`
+      const row = items.get(key) ?? { name: l.name, kind: l.kind, unit: l.unit, qty: 0, total: 0 }
+      row.qty += l.qty
+      row.total = round2(row.total + amount)
+      items.set(key, row)
+    }
+  }
+  for (const k of PURCHASE_KINDS) byKind[k] = round2(byKind[k])
+  return {
+    total: round2(total),
+    bills: count,
+    byKind,
+    items: [...items.values()].sort((a, z) => z.total - a.total),
+  }
 }
