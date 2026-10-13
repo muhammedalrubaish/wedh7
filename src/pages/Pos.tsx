@@ -21,6 +21,7 @@ import {
   Input,
   Modal,
   Select,
+  Textarea,
   cn,
   useDebounced,
   useToast,
@@ -67,6 +68,7 @@ export default function Pos() {
   const [newCustomer, setNewCustomer] = useState(false)
   const [payment, setPayment] = useState<PaymentMethod>('transfer')
   const [invoiceDiscount, setInvoiceDiscount] = useState(0)
+  const [notes, setNotes] = useState('')
   const [done, setDone] = useState<Invoice | null>(null)
   const [busy, setBusy] = useState(false)
   const searchRef = useRef<HTMLInputElement>(null)
@@ -217,13 +219,14 @@ export default function Pos() {
         status: 'paid',
         userId: user.id,
         createdAt: Date.now(),
+        notes: notes.trim() || undefined,
       }
 
       const saved = await createSale({
         customerId: customerRef,
         paymentMethod: payment,
         discount: totals.discount,
-        notes: undefined,
+        notes: notes.trim() || undefined,
         lines: lines.map((l) => ({
           partId: l.partId,
           qty: l.qty,
@@ -244,6 +247,7 @@ export default function Pos() {
       setDone(saved)
       setCart([])
       setInvoiceDiscount(0)
+      setNotes('')
       toast(`تم إصدار الفاتورة ${saved.number}`)
     } catch (err) {
       toast(err instanceof Error ? err.message : 'تعذّر إتمام البيع', 'error')
@@ -497,6 +501,18 @@ export default function Pos() {
             <span className="text-sm font-medium text-brand-strong">الإجمالي</span>
             <span className="tnum text-lg font-bold text-brand-strong">{money(totals.total)}</span>
           </div>
+
+          {/* ملاحظة حرّة لا حقل منظَّم: العميل يكتب فيها ما يخص هذه الفاتورة وحدها
+          (موعد التسليم، اسم المستلم، ما اتُّفق عليه)، وتظهر في المطبوع ونص واتساب. */}
+          <Textarea
+            rows={2}
+            aria-label="ملاحظة على الفاتورة"
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            maxLength={300}
+            placeholder="ملاحظة على الفاتورة (اختياري) — تظهر للمحل في الفاتورة وواتساب"
+            className="text-[13px]"
+          />
 
           <div className="grid grid-cols-4 gap-1">
             {PAYMENTS.map(([value, label]) => (

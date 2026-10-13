@@ -133,6 +133,13 @@ export function InvoiceDoc({
         {freeTotal > 0 && <Row label="بوكسات مُسلَّمة بلا مقابل" value={num(freeTotal)} />}
       </div>
 
+      {invoice.notes && (
+        <p className="mt-3 whitespace-pre-wrap break-words rounded border border-gray-300 p-2 text-[11px]">
+          <span className="font-semibold">ملاحظة: </span>
+          {invoice.notes}
+        </p>
+      )}
+
       {returns.length > 0 && (
         <div className="tnum mt-3 space-y-1 rounded border border-gray-300 p-2">
           <p className="text-[11px] font-semibold">مرتجعات على هذه الفاتورة</p>

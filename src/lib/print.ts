@@ -133,6 +133,7 @@ ${invoice.customerName ? `<p class="muted">العميل: ${esc(invoice.customerN
   <div class="grand"><span>الإجمالي المستحق</span><span>${esc(money(invoice.total))}</span></div>
   <div><span>طريقة الدفع</span><span>${PAYMENT_LABELS[invoice.paymentMethod]}</span></div>
 </div>
+${invoice.notes ? `<p class="muted" style="white-space:pre-wrap;margin-top:6px">ملاحظة: ${esc(invoice.notes)}</p>` : ''}
 ${returnsBlock}
 ${qr ? `<div class="qr"><img src="${qr}" alt="ZATCA QR"><p class="muted">رمز الفاتورة الضريبية</p></div>` : ''}
 ${invoice.status === 'refunded' ? '<p class="refunded">مسترجعة بالكامل</p>' : ''}
