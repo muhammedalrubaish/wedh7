@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Barcode,
   Check,
-  Gift,
+  CakeSlice,
   MessageCircle,
   Minus,
   Plus,
@@ -40,7 +40,7 @@ import type { Customer, Invoice, InvoiceLine, Part, PaymentMethod } from '@/lib/
 interface CartLine {
   part: Part
   qty: number
-  /** هدايا/عينات مع البند — تُخصم من الرصيد ولا تُحاسَب. */
+  /** عينات مع البند — تُخصم من الرصيد ولا تُحاسَب. */
   freeQty: number
   unitPrice: number
   discount: number
@@ -96,7 +96,7 @@ export default function Pos() {
       .slice(0, 40)
   }, [parts, debounced])
 
-  /** المخصوم فعلاً من الرصيد لهذا البند: المحاسَب والهدايا معاً. */
+  /** المخصوم فعلاً من الرصيد لهذا البند: المحاسَب والعينات معاً. */
   const outOf = (l: CartLine) => l.qty + l.freeQty
 
   function addPart(part: Part) {
@@ -137,9 +137,9 @@ export default function Pos() {
       cur.map((l) => {
         if (l.part.id !== id) return l
         const next = { ...l, ...patch }
-        // الهدايا تُخصم من نفس الرصيد: ١٠ محاسَبة + ١ هدية = ١١ بوكساً يخرج من الرفّ.
+        // العينات تُخصم من نفس الرصيد: ١٠ محاسَبة + ١ عينة = ١١ بوكساً يخرج من الرفّ.
         if (outOf(next) > l.part.qty) {
-          toast(`الرصيد المتاح ${l.part.qty} فقط (محاسَب + هدايا)`, 'warn')
+          toast(`الرصيد المتاح ${l.part.qty} فقط (محاسَب + عينات)`, 'warn')
           return l
         }
         return next
@@ -180,7 +180,7 @@ export default function Pos() {
   async function checkout() {
     if (!user || cart.length === 0) return
     if (cart.every((l) => l.qty === 0)) {
-      toast('فاتورة كل بنودها هدايا؟ سجّلها تسوية «عينات» من بطاقة المنتج بدل فاتورة', 'warn')
+      toast('فاتورة كل بنودها عينات؟ سجّلها تسوية «عينات» من بطاقة المنتج بدل فاتورة', 'warn')
       return
     }
     setBusy(true)
@@ -238,7 +238,7 @@ export default function Pos() {
         'إصدار فاتورة',
         'invoice',
         saved.id,
-        `${saved.number} — ${money(saved.total)}${totals.freeUnits ? ` — ${totals.freeUnits} هدية` : ''}`,
+        `${saved.number} — ${money(saved.total)}${totals.freeUnits ? ` — ${totals.freeUnits} عينة` : ''}`,
       )
 
       setDone(saved)
@@ -422,17 +422,17 @@ export default function Pos() {
                     {money(l.unitPrice * l.qty - l.discount)}
                   </span>
                 </div>
-                {/* الهدية عدّاد مستقل عن الكمية: «١١ بوكس والفاتورة على ١٠» تعني
+                {/* العينة عدّاد مستقل عن الكمية: «١١ بوكس والفاتورة على ١٠» تعني
                     qty=10 و freeQty=1، والرصيد ينقص ١١. */}
                 <div className="mt-2 flex items-center gap-2 text-[12px]">
-                  <Gift className="size-3.5 text-accent" />
-                  <span className="text-muted">هدية / عينة</span>
+                  <CakeSlice className="size-3.5 text-accent" />
+                  <span className="text-muted">عينة</span>
                   <div className="flex items-center gap-1">
                     <Button
                       size="icon"
                       variant="ghost"
                       className="size-6"
-                      aria-label="هدية أقل"
+                      aria-label="عينة أقل"
                       disabled={l.freeQty === 0}
                       onClick={() => updateLine(l.part.id, { freeQty: l.freeQty - 1 })}
                     >
@@ -450,7 +450,7 @@ export default function Pos() {
                       size="icon"
                       variant="ghost"
                       className="size-6"
-                      aria-label="هدية أكثر"
+                      aria-label="عينة أكثر"
                       disabled={outOf(l) >= l.part.qty}
                       onClick={() => updateLine(l.part.id, { freeQty: l.freeQty + 1 })}
                     >
@@ -487,7 +487,7 @@ export default function Pos() {
             )}
             {totals.freeUnits > 0 && (
               <Row
-                label={`${num(totals.freeUnits)} هدية — تكلفتها`}
+                label={`${num(totals.freeUnits)} عينة — تكلفتها`}
                 value={totals.freeCost ? money(totals.freeCost) : '—'}
               />
             )}

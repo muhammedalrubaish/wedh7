@@ -97,7 +97,7 @@ export function InvoiceDoc({
                     على ١٠ — السطر هذا يقطع السؤال. */}
                 {l.freeQty > 0 && (
                   <div className="tnum text-[10px] text-gray-600">
-                    + {num(l.freeQty)} هدية بلا مقابل
+                    + {num(l.freeQty)} عينة بلا مقابل
                   </div>
                 )}
               </td>

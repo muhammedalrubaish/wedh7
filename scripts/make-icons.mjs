@@ -34,14 +34,18 @@ const rect = ([x, y, w, h, r]) => ({
 })
 
 /** جسم البوكس: حدّ لا تعبئة. */
-const BODY = rect([5, 12, 22, 15, 2.6])
+const BODY = rect([5, 12.5, 22, 13, 2.6])
 const BODY_STROKE = (2.6 * 0.8) / 2 // نصف عرض الحدّ بعد التحجيم
 
-/** الغطاء والشريطة: تعبئة. */
-const FILLS = [
-  [3.5, 7, 25, 5.5, 1.8],
-  [14.2, 12, 3.6, 15, 0],
-].map(rect)
+/** لا أشكال مستطيلة معبّأة بعد حذف الغطاء؛ تبقى المصفوفة كي يضاف إليها بلا تعديل الرسم. */
+const FILLS = []
+
+/** قطع الحلى الثلاث البارزة فوق حافة البوكس: `cx cy r` قبل التحجيم. */
+const SWEETS = [
+  [9.8, 11, 3.1],
+  [16, 9.6, 3.1],
+  [22.2, 11, 3.1],
+].map(([x, y, r]) => ({ cx: gx(x), cy: gy(y), r: 0.8 * r }))
 
 /* -------------------------------------------------------------------------- */
 /* دوال المسافة — التنعيم يأتي من أخذ عيّنات فرعية لا من تمويه                  */
@@ -132,6 +136,7 @@ function render(size, { rounded = true, inset = 1 } = {}) {
           const py = (uy - pad) / inset
           if (Math.abs(sdRoundRect(px, py, BODY)) <= BODY_STROKE) fg++
           else if (FILLS.some((b) => sdRoundRect(px, py, b) <= 0)) fg++
+          else if (SWEETS.some((c) => Math.hypot(px - c.cx, py - c.cy) <= c.r)) fg++
         }
       }
       const n = SS * SS

@@ -34,7 +34,7 @@ export function waLink(phone: string | undefined, text: string): string {
 
 export function invoiceMessage(invoice: Invoice, settings: Settings): string {
   const lines = invoice.lines.map((l) => {
-    const free = l.freeQty ? ` (+${num(l.freeQty)} هدية)` : ''
+    const free = l.freeQty ? ` (+${num(l.freeQty)} عينة)` : ''
     return `• ${l.name} × ${num(l.qty)}${free} = ${money(l.unitPrice * l.qty - l.discount)}`
   })
   const out = [
@@ -103,7 +103,7 @@ export function statementMessage(input: {
     ...inv.map((i) => `🧾 ${i.number} · ${date(i.createdAt)} · ${money(i.total)}`),
     ...ret.map((r) => `↩️ ${r.number} · ${date(r.createdAt)} · -${money(r.total)}`),
     '',
-    `📦 البوكسات: ${num(boxes)}${free ? ` (+${num(free)} هدية)` : ''}`,
+    `📦 البوكسات: ${num(boxes)}${free ? ` (+${num(free)} عينة)` : ''}`,
     `المبيعات: ${money(sold)}`,
     back > 0 ? `المرتجع: -${money(back)}` : '',
     `✅ الصافي المستحق: ${money(sold - back)}`,

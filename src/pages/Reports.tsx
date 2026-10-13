@@ -14,7 +14,7 @@ import {
 } from 'recharts'
 import {
   Download,
-  Gift,
+  CakeSlice,
   MessageCircle,
   PieChart as PieIcon,
   Snowflake,
@@ -222,7 +222,7 @@ export default function Reports() {
         : []),
       ['عدد الفواتير', String(current.invoices)],
       ['البوكسات المباعة', String(current.units)],
-      ['بوكسات هدايا وعينات', String(current.freeUnits)],
+      ['بوكسات العينات', String(current.freeUnits)],
       ['بوكسات مرتجعة', String(current.returnedUnits)],
       ['متوسط الفاتورة', String(current.averageTicket)],
       [],
@@ -230,7 +230,7 @@ export default function Reports() {
         'حسب العميل',
         'الفواتير',
         'البوكسات',
-        'هدايا',
+        'عينات',
         'المبيعات',
         'المرتجع',
         'الصافي بدون ضريبة',
@@ -249,7 +249,7 @@ export default function Reports() {
         ...(showMoney ? [String(c.profit)] : []),
       ]),
       [],
-      ['الأكثر مبيعاً', 'الكمية', 'هدايا', 'الإيراد', ...(showMoney ? ['الربح'] : [])],
+      ['الأكثر مبيعاً', 'الكمية', 'عينات', 'الإيراد', ...(showMoney ? ['الربح'] : [])],
       ...best.map((p: PartPerformance) => [
         p.name,
         String(p.units),
@@ -356,10 +356,10 @@ export default function Reports() {
           />
         )}
         <Stat
-          label="هدايا وعينات"
+          label="عينات"
           value={num(current.freeUnits)}
           tone="accent"
-          icon={<Gift className="size-5" />}
+          icon={<CakeSlice className="size-5" />}
           sub={
             showMoney && current.freeCost > 0
               ? `تكلفتها ${money(current.freeCost, { compact: true })}`
@@ -379,7 +379,7 @@ export default function Reports() {
       <Card>
         <CardHeader
           title="حسب العميل"
-          subtitle="المبيعات والمرتجعات والهدايا لكل محل في الفترة"
+          subtitle="المبيعات والمرتجعات والعينات لكل محل في الفترة"
           icon={<Store className="size-[18px]" />}
         />
         {perCustomer.length === 0 ? (
@@ -643,7 +643,7 @@ export default function Reports() {
                     <p className="truncate text-[13px] font-medium">{p.name}</p>
                     <p className="tnum text-[11px] text-faint">
                       {p.units} بوكس
-                      {p.freeUnits > 0 && ` · ${p.freeUnits} هدية`}
+                      {p.freeUnits > 0 && ` · ${p.freeUnits} عينة`}
                       {showMoney && ` · ربح ${money(p.profit, { compact: true })}`}
                     </p>
                   </div>

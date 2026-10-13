@@ -19,7 +19,7 @@ export interface PeriodSummary {
   invoices: number
   /** البوكسات المحاسَبة. */
   units: number
-  /** بوكسات خرجت هديةً أو عينة — تكلفة بلا إيراد. */
+  /** بوكسات خرجت عينةً — تكلفة بلا إيراد. */
   freeUnits: number
   /** تكلفة العينات وحدها، لتظهر رقماً مستقلاً لصاحب المحل. */
   freeCost: number

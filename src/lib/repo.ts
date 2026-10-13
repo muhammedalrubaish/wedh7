@@ -103,7 +103,7 @@ export async function applyMovement(input: {
 export interface SaleLine {
   partId: string
   qty: number
-  /** عينات/هدايا مع البند — تُخصم من المخزون بلا سعر. */
+  /** عينات مع البند — تُخصم من المخزون بلا سعر. */
   freeQty: number
   unitPrice: number
   discount: number

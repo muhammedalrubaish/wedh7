@@ -21,7 +21,7 @@ export interface Snapshot {
   generatedAt: number
   shop: { name: string; currency: string; vatRate: number }
   periods: Record<'today' | 'week' | 'month' | 'quarter', ReturnType<typeof summarize>>
-  /** عينات وهدايا آخر ٣٠ يوماً: بوكسات خرجت بلا مقابل وتكلفتها. */
+  /** عينات آخر ٣٠ يوماً: بوكسات خرجت بلا مقابل وتكلفتها. */
   samples: { units: number; cost: number }
   /** المرتجعات آخر ٣٠ يوماً — كم رجع، وكم منه ضاع لانتهاء الصلاحية. */
   returns: { count: number; amount: number; expiredCost: number }
@@ -238,7 +238,7 @@ export function localInsights(s: Snapshot): Insight[] {
     const share = s.periods.month.revenue ? (s.samples.cost / s.periods.month.revenue) * 100 : 0
     out.push({
       tone: share > 5 ? 'warn' : 'info',
-      title: `${s.samples.units} بوكس عينات وهدايا هذا الشهر`,
+      title: `${s.samples.units} بوكس عينات هذا الشهر`,
       body: `تكلفتها ${money(s.samples.cost)} — ${share.toFixed(1)}٪ من المبيعات. العينة تسويق له ثمن، وهذا ثمنه.`,
       action:
         share > 5 ? 'حدّد سقفاً للعينات لكل محل في الشهر، وراقب من يطلب أكثر من غيره.' : undefined,
@@ -304,7 +304,7 @@ const SYSTEM_PROMPT = `أنت محاسب المحل. تخاطب صاحب معم�
 - 🧮 الضريبة المحصّلة **ليست ربحاً** — تُورَّد للهيئة.
 - اذكر تحفّظاً أو مخاطرة واحدة على الأقل في أي تحليل مالي.
 - أنت لست مستشاراً ضريبياً معتمداً — نبّه على ذلك في المسائل النظامية.
-- 🎁 العينات والهدايا تكلفة بلا إيراد، والمرتجع منتهي الصلاحية خسارة كاملة — لا تخلطهما بالمبيعات.`
+- 🍰 العينات تكلفة بلا إيراد، والمرتجع منتهي الصلاحية خسارة كاملة — لا تخلطهما بالمبيعات.`
 
 export interface ChatMessage {
   role: 'user' | 'assistant'

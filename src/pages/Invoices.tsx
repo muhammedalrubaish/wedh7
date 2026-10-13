@@ -156,7 +156,7 @@ export default function Invoices() {
           }
         />
         <Stat
-          label="هدايا وعينات"
+          label="عينات"
           value={num(summary.freeUnits)}
           tone="accent"
           sub={
@@ -237,7 +237,7 @@ export default function Invoices() {
                               {inv.number}
                               {inv.status === 'refunded' && <Badge tone="danger">مسترجعة</Badge>}
                               {rets.length > 0 && <Badge tone="warn">مرتجع جزئي</Badge>}
-                              {free > 0 && <Badge tone="accent">+{free} هدية</Badge>}
+                              {free > 0 && <Badge tone="accent">+{free} عينة</Badge>}
                             </span>
                           </td>
                           <td className="tnum px-3 py-2.5 text-muted">{dateTime(inv.createdAt)}</td>
@@ -493,7 +493,7 @@ export default function Invoices() {
       >
         <p className="text-sm leading-6">
           ستُلغى الفاتورة <span className="tnum font-semibold">{refunding?.number}</span> وتعود كل
-          بوكساتها (والهدايا معها) إلى المخزون، وتُستثنى من التقارير. لو رجع جزء فقط فاستخدم «مرتجع»
+          بوكساتها (والعينات معها) إلى المخزون، وتُستثنى من التقارير. لو رجع جزء فقط فاستخدم «مرتجع»
           بدلها. لا يمكن التراجع.
         </p>
       </Modal>
@@ -623,7 +623,7 @@ function ReturnModal({
                   <p className="tnum text-[11px] text-faint">
                     بيع {l.qty} × {money(l.unitPrice)}
                     {(already.get(l.partId) ?? 0) > 0 && ` · رُجع ${already.get(l.partId)} سابقاً`}
-                    {l.freeQty > 0 && ` · ${l.freeQty} هدية (لا تُردّ بمال)`}
+                    {l.freeQty > 0 && ` · ${l.freeQty} عينة (لا تُردّ بمال)`}
                   </p>
                 </div>
                 <input

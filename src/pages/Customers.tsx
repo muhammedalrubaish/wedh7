@@ -474,7 +474,7 @@ function CustomerDetail({
             <Stat
               label="بوكسات"
               value={num(rollup.boxes)}
-              sub={rollup.freeBoxes ? `+${num(rollup.freeBoxes)} هدية` : undefined}
+              sub={rollup.freeBoxes ? `+${num(rollup.freeBoxes)} عينة` : undefined}
             />
             {showMoney && <Stat label="الصافي بعد المرتجع" value={money(rollup.spent)} tone="ok" />}
             {showMoney && rollup.unpaid > 0 ? (

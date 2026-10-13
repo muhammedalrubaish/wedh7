@@ -112,8 +112,8 @@ const PRODUCTS: ProductSpec[] = [
     weight: 2,
   },
   {
-    name: 'بوكس هدية — مناسبات',
-    nameEn: 'Occasion Gift Box',
+    name: 'بوكس حلى — مناسبات',
+    nameEn: 'Occasion Sweets Box',
     cat: 'مناسبات',
     cost: 90,
     qty: 15,
@@ -209,7 +209,7 @@ export async function seed(): Promise<void> {
       vatNumber: '310000000000003',
       createdAt: now,
     },
-    { id: 'cus_3', name: 'محل ورد وهدايا', phone: '0577778888', type: 'wholesale', createdAt: now },
+    { id: 'cus_3', name: 'محل ورد الربيع', phone: '0577778888', type: 'wholesale', createdAt: now },
     { id: 'cus_4', name: 'كافيه الركن', phone: '0533334444', type: 'wholesale', createdAt: now },
     { id: 'cus_5', name: 'صالون ليالي', phone: '0598887766', type: 'wholesale', createdAt: now },
     { id: 'cus_6', name: 'عبدالله السالم', phone: '0511112222', type: 'retail', createdAt: now },
@@ -264,7 +264,7 @@ export async function seed(): Promise<void> {
         const part = pick(demandPool)
         if (lines.some((x) => x.partId === part.id)) continue
         const qty = wholesale ? intBetween(6, 24) : intBetween(1, 2)
-        // كل عشرة بوكسات تقريباً واحد هدية — عادة العميل الفعلية مع المحلات.
+        // كل عشرة بوكسات تقريباً واحد عينة — عادة العميل الفعلية مع المحلات.
         const freeQty = wholesale && rand() < 0.5 ? Math.max(1, Math.round(qty / 10)) : 0
         const unitPrice = wholesale ? part.priceWholesale : part.priceRetail
         lines.push({

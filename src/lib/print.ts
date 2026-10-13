@@ -90,7 +90,7 @@ export async function printInvoice(
       (l) => `<tr>
         <td>
           <div class="name">${esc(l.name)}</div>
-          <div class="sku">${esc(l.sku)}${l.freeQty ? ` · +${l.freeQty} هدية بلا مقابل` : ''}</div>
+          <div class="sku">${esc(l.sku)}${l.freeQty ? ` · +${l.freeQty} عينة بلا مقابل` : ''}</div>
         </td>
         <td class="n">${l.qty}</td>
         <td class="n">${l.unitPrice.toFixed(2)}</td>
