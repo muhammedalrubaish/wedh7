@@ -6,6 +6,7 @@ import {
   Download,
   RefreshCw,
   Save,
+  Share2,
   ShieldCheck,
   Store,
   Trash2,
@@ -48,6 +49,16 @@ const DEFAULT_MODEL: Record<Exclude<Provider, 'none'>, string> = {
   anthropic: 'claude-sonnet-5',
 }
 
+/** تاريخ اليوم المحلي لاسم الملف — `toISOString` بتوقيت غرينتش يسمّي نسخة الفجر باسم الأمس. */
+const localDay = () => {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+/** iOS ‏15+ وأندرويد يشاركان الملفات؛ متصفح المكتب غالباً لا — فيبقى «تنزيل» وحده. */
+const canShareFile = (file: File) =>
+  typeof navigator.canShare === 'function' && navigator.canShare({ files: [file] })
+
 export default function SettingsPage() {
   const { settings, updateSettings } = useApp()
   const toast = useToast()
@@ -56,6 +67,7 @@ export default function SettingsPage() {
   const [resetOpen, setResetOpen] = useState(false)
   const [exporting, setExporting] = useState(false)
   const [lastBackup, setLastBackup] = useState<Record<string, number> | null>(null)
+  const [prepared, setPrepared] = useState<File | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => setDraft(settings), [settings])
@@ -73,29 +85,51 @@ export default function SettingsPage() {
     }
   }
 
-  async function doExport() {
+  /**
+   * خطوتان لا خطوة: Safari على الآيفون يرفض `navigator.share` إن لم تُستدعَ مباشرة
+   * من ضغطة المستخدم، وسحب النسخة من الخادم يستغرق ثواني تُسقط تلك الضغطة. فالضغطة
+   * الأولى تجهّز الملف، والثانية (في النافذة) تفتح قائمة المشاركة فوراً.
+   */
+  async function prepareBackup() {
     setExporting(true)
     try {
       // في الوضع السحابي من الخادم لا من المرآة: المرآة مقصوصة ولا تُعدّ نسخة.
       const { json, counts } = cloudAuth
         ? await fetchBackup()
         : { json: await exportAll(), counts: null }
-      const url = URL.createObjectURL(new Blob([json], { type: 'application/json' }))
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `wedh7-backup-${new Date().toISOString().slice(0, 10)}.json`
-      document.body.append(a)
-      a.click()
-      a.remove()
-      // الإلغاء الفوري يقطع التنزيل في Safari على الآيفون قبل أن يبدأ.
-      setTimeout(() => URL.revokeObjectURL(url), 60_000)
       setLastBackup(counts)
-      toast('تم تنزيل النسخة الاحتياطية')
+      setPrepared(new File([json], `wedh7-backup-${localDay()}.json`, { type: 'application/json' }))
     } catch (err) {
-      toast(err instanceof Error ? err.message : 'تعذّر تنزيل النسخة', 'error')
+      toast(err instanceof Error ? err.message : 'تعذّر تجهيز النسخة', 'error')
     } finally {
       setExporting(false)
     }
+  }
+
+  async function shareBackup(file: File) {
+    try {
+      // الملف وحده بلا نص: على iOS إرفاق نصّ مع الملف يجعل بعض التطبيقات (واتساب)
+      // ترسل النص وتُسقط الملف.
+      await navigator.share({ files: [file] })
+      setPrepared(null)
+      toast('تم إرسال النسخة')
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') return // أغلق القائمة بنفسه
+      downloadFile(file)
+      toast('تعذّرت المشاركة — نُزّل الملف بدلاً منها', 'warn')
+    }
+  }
+
+  function downloadFile(file: File) {
+    const url = URL.createObjectURL(file)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = file.name
+    document.body.append(a)
+    a.click()
+    a.remove()
+    // الإلغاء الفوري يقطع التنزيل في Safari على الآيفون قبل أن يبدأ.
+    setTimeout(() => URL.revokeObjectURL(url), 60_000)
   }
 
   async function doImport(file: File) {
@@ -359,7 +393,7 @@ export default function SettingsPage() {
           icon={<Database className="size-[18px]" />}
         />
         <div className="flex flex-wrap gap-2 p-4">
-          <Button variant="secondary" onClick={doExport} loading={exporting}>
+          <Button variant="secondary" onClick={prepareBackup} loading={exporting}>
             <Download className="size-4" />
             تنزيل نسخة احتياطية
           </Button>
@@ -416,6 +450,57 @@ export default function SettingsPage() {
           </p>
         )}
       </Card>
+
+      <Modal
+        open={Boolean(prepared)}
+        onClose={() => setPrepared(null)}
+        size="sm"
+        title="النسخة الاحتياطية جاهزة"
+        subtitle={prepared?.name}
+        footer={
+          prepared && (
+            <>
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  downloadFile(prepared)
+                  setPrepared(null)
+                  toast('تم تنزيل النسخة الاحتياطية')
+                }}
+              >
+                <Download className="size-4" />
+                تنزيل
+              </Button>
+              {canShareFile(prepared) && (
+                <Button variant="primary" onClick={() => shareBackup(prepared)}>
+                  <Share2 className="size-4" />
+                  مشاركة
+                </Button>
+              )}
+            </>
+          )
+        }
+      >
+        <div className="space-y-2 text-sm leading-6">
+          {prepared && canShareFile(prepared) ? (
+            <p>
+              اضغط «مشاركة» ثم اختر <b>«حفظ في الملفات»</b> ليبقى الملف في جوالك، أو <b>البريد</b>{' '}
+              لترسله إلى نفسك.
+            </p>
+          ) : (
+            <p>اضغط «تنزيل» فيُحفظ الملف في مجلد التنزيلات.</p>
+          )}
+          {lastBackup && (
+            <p className="tnum rounded-lg bg-surface-2 px-2.5 py-1.5 text-[12px] text-muted">
+              فيها {lastBackup.invoices ?? 0} فاتورة · {lastBackup.movements ?? 0} حركة مخزون ·{' '}
+              {lastBackup.purchaseBills ?? 0} فاتورة مشتريات
+            </p>
+          )}
+          <p className="text-[12px] text-danger">
+            الملف فيه كل أرقام المحل وأسعاره وأرباحه. لا ترسله إلى أحد غيرك.
+          </p>
+        </div>
+      </Modal>
 
       <Modal
         open={resetOpen}
