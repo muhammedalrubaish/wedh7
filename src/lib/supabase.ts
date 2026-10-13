@@ -50,18 +50,47 @@ function assertNotServiceRole(key: string): void {
   }
 }
 
-if (cloudEnabled) assertNotServiceRole(anonKey)
+/**
+ * خطأ إعداد يمنع ربط القاعدة — يُعرض على الشاشة بدل أن يُرمى.
+ *
+ * كان الرمي هنا يُسقط التطبيق قبل أول رسم: `createClient` يرفض رابطاً غير صالح
+ * وحارس المفتاح السرّي يرمي، وكلاهما وقت تحميل الوحدة. النتيجة صفحة بيضاء بلا
+ * رسالة — وهذا ما حدث فعلاً حين وُضع المفتاح مكان الرابط في متغيّرات Vercel.
+ * صفحة بيضاء لصاحب المحل تعني «النظام خربان»، لا «متغيّر واحد خطأ».
+ */
+export const configError: string | null = (() => {
+  if (!cloudEnabled) return null
+  if (url.startsWith('sb_') || url.startsWith('eyJ')) {
+    return (
+      'قيمة VITE_SUPABASE_URL في Vercel هي مفتاح لا رابط. ضع فيها رابط المشروع ' +
+      '(https://xxxx.supabase.co) من Supabase ← Project Settings ← API، ثم أعد النشر.'
+    )
+  }
+  if (!/^https:\/\/[^\s/]+\.[^\s/]+\/?$/.test(url)) {
+    return (
+      'قيمة VITE_SUPABASE_URL ليست رابطاً صالحاً. المطلوب بالضبط: https://xxxx.supabase.co ' +
+      'بلا مسافة ولا مسار بعده، ثم أعد النشر من Vercel.'
+    )
+  }
+  try {
+    assertNotServiceRole(anonKey)
+  } catch (err) {
+    return err instanceof Error ? err.message : 'مفتاح Supabase غير صالح.'
+  }
+  return null
+})()
 
-export const supabase: SupabaseClient | null = cloudEnabled
-  ? createClient(url, anonKey, {
-      auth: {
-        // الجلسة تُحفظ وتُجدَّد تلقائياً: صاحب المحل ما يبي يسجّل دخول كل ساعة.
-        persistSession: true,
-        autoRefreshToken: true,
-        detectSessionInUrl: false, // التوجيه HashRouter — لا نريد تنازعاً على الـ hash
-      },
-    })
-  : null
+export const supabase: SupabaseClient | null =
+  cloudEnabled && !configError
+    ? createClient(url, anonKey, {
+        auth: {
+          // الجلسة تُحفظ وتُجدَّد تلقائياً: صاحب المحل ما يبي يسجّل دخول كل ساعة.
+          persistSession: true,
+          autoRefreshToken: true,
+          detectSessionInUrl: false, // التوجيه HashRouter — لا نريد تنازعاً على الـ hash
+        },
+      })
+    : null
 
 /** يُستدعى في مسارات الكتابة: يوضّح السبب بدل انهيار بمرجع فارغ. */
 export function requireClient(): SupabaseClient {
