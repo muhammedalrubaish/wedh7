@@ -209,15 +209,18 @@ export function AppShell() {
             className="absolute inset-0 animate-fade bg-black/45"
             onClick={() => setOpen(false)}
           />
-          <aside className="panel absolute inset-y-0 right-0 w-72 animate-rise border-l border-border">
+          <aside className="panel absolute inset-y-0 right-0 w-72 animate-rise border-l border-border pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
             {sidebar}
           </aside>
         </div>
       )}
 
       <div className="lg:mr-64">
-        <DemoBanner />
-        <header className="sticky top-0 z-20 flex h-14 items-center gap-2 border-b border-border glass px-4 no-print">
+        {/* `viewport-fit=cover` يمدّ الصفحة تحت شريط المتصفح وشريط الحالة في آيفون، فالترويسة
+        الملتصقة بـ`top-0` تختفي تحتهما عند التمرير ويظهر المحتوى مقصوصاً. الحشوة بمقدار
+        الحافة الآمنة تُنزل الأزرار تحت الشريط، وقيمتها صفر في كل جهاز بلا حافة. ولهذا تبقى
+        الترويسة أول عنصر في الصفحة وشريط العرض تحتها: لو سبقها لصارت الحشوة فجوة فارغة. */}
+        <header className="sticky top-0 z-20 flex h-[calc(3.5rem+env(safe-area-inset-top))] items-center gap-2 border-b border-border glass px-4 pt-[env(safe-area-inset-top)] no-print">
           <Button
             variant="ghost"
             size="icon"
@@ -236,6 +239,7 @@ export function AppShell() {
             {settings.theme === 'dark' ? <Sun className="size-4" /> : <Moon className="size-4" />}
           </Button>
         </header>
+        <DemoBanner />
 
         <main className="mx-auto max-w-[1400px] px-4 py-5 sm:px-6 lg:py-7">
           <Outlet />

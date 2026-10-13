@@ -300,7 +300,9 @@ export function Modal({
         role="dialog"
         aria-modal="true"
         className={cn(
-          'panel relative flex max-h-[92vh] w-full animate-pop flex-col overflow-hidden rounded-t-2xl border border-border shadow-2xl sm:rounded-2xl',
+          // على الجوال تنبثق النافذة من أسفل الشاشة، فبدون حشوة الحافة الآمنة يجلس زر
+          // الحفظ تحت شريط الإيماءات أو شريط المتصفح السفلي ولا يُضغط.
+          'panel relative flex max-h-[92dvh] w-full animate-pop flex-col overflow-hidden rounded-t-2xl border border-border pb-[env(safe-area-inset-bottom)] shadow-2xl sm:rounded-2xl sm:pb-0',
           widths[size],
         )}
       >
@@ -358,7 +360,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <ToastCtx.Provider value={push}>
       {children}
-      <div className="pointer-events-none fixed bottom-4 left-1/2 z-[60] flex w-[min(92vw,26rem)] -translate-x-1/2 flex-col gap-2">
+      <div className="pointer-events-none fixed bottom-[calc(1rem+env(safe-area-inset-bottom))] left-1/2 z-[60] flex w-[min(92vw,26rem)] -translate-x-1/2 flex-col gap-2">
         {items.map((t) => (
           <div
             key={t.id}
