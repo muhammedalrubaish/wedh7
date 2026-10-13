@@ -9,6 +9,7 @@ import {
   Pencil,
   Search,
   SlidersHorizontal,
+  Tags,
 } from 'lucide-react'
 import {
   Button,
@@ -26,6 +27,7 @@ import {
   usePagination,
 } from '@/components/ui'
 import { PartForm } from '@/components/PartForm'
+import { CategoryManager } from '@/components/CategoryManager'
 import { bulkUpdateParts, type BulkPartPatch } from '@/lib/repo'
 import { marginPercent, money, num } from '@/lib/format'
 import {
@@ -60,6 +62,7 @@ export default function Inventory() {
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [bulkOpen, setBulkOpen] = useState(false)
   const [formOpen, setFormOpen] = useState(false)
+  const [categoriesOpen, setCategoriesOpen] = useState(false)
 
   const stockFilter = (params.get('filter') as StockFilter) ?? 'all'
   const setStockFilter = (f: StockFilter) => {
@@ -136,16 +139,22 @@ export default function Inventory() {
           </p>
         </div>
         {can('inventory.edit') && (
-          <Button
-            variant="primary"
-            onClick={() => {
-              setEditing(null)
-              setFormOpen(true)
-            }}
-          >
-            <PackagePlus className="size-4" />
-            منتج جديد
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="secondary" onClick={() => setCategoriesOpen(true)}>
+              <Tags className="size-4" />
+              التصنيفات
+            </Button>
+            <Button
+              variant="primary"
+              onClick={() => {
+                setEditing(null)
+                setFormOpen(true)
+              }}
+            >
+              <PackagePlus className="size-4" />
+              منتج جديد
+            </Button>
+          </div>
         )}
       </div>
 
@@ -444,6 +453,7 @@ export default function Inventory() {
       </Card>
 
       <PartForm open={formOpen} onClose={() => setFormOpen(false)} part={editing} />
+      <CategoryManager open={categoriesOpen} onClose={() => setCategoriesOpen(false)} />
       <BulkEditModal
         open={bulkOpen}
         onClose={() => setBulkOpen(false)}

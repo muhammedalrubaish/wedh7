@@ -360,7 +360,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <ToastCtx.Provider value={push}>
       {children}
-      <div className="pointer-events-none fixed bottom-[calc(1rem+env(safe-area-inset-bottom))] left-1/2 z-[60] flex w-[min(92vw,26rem)] -translate-x-1/2 flex-col gap-2">
+      <div className="pointer-events-none fixed bottom-[calc(5.5rem+env(safe-area-inset-bottom))] left-1/2 lg:bottom-[calc(1rem+env(safe-area-inset-bottom))] z-[60] flex w-[min(92vw,26rem)] -translate-x-1/2 flex-col gap-2">
         {items.map((t) => (
           <div
             key={t.id}

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Sparkles } from 'lucide-react'
 import { Button, Field, Input, Modal, Select, Textarea, cn, useToast } from './ui'
-import { applyMovement, audit, createPart, updatePart } from '@/lib/repo'
+import { applyMovement, audit, createCategory, createPart, updatePart } from '@/lib/repo'
 import { marginPercent, money, round2 } from '@/lib/format'
 import { useApp } from '@/store/app'
 import { useCategories, useSuppliers } from '@/hooks/useShopData'
@@ -47,10 +47,15 @@ export function PartForm({
   const [draft, setDraft] = useState<Draft>(BLANK)
   const [saving, setSaving] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
+  // `null` = القائمة؛ نصّ = خانة «تصنيف جديد» مفتوحة. القاعدة الحقيقية تبدأ بلا تصنيفات،
+  // فإنشاؤه من هنا هو ما يجعل أول منتج ممكناً دون البحث عن شاشة أخرى.
+  const [newCategory, setNewCategory] = useState<string | null>(null)
+  const [addingCategory, setAddingCategory] = useState(false)
 
   useEffect(() => {
     if (!open) return
     setErrors({})
+    setNewCategory(null)
     if (part) {
       const { id: _id, createdAt: _c, updatedAt: _u, archived: _a, ...rest } = part
       setDraft(rest)
@@ -62,7 +67,32 @@ export function PartForm({
         sku: `WDH-${Math.floor(Math.random() * 900 + 100)}`,
       })
     }
+    // `categories` خارج الاعتماديات عمداً: إضافة تصنيف من داخل النموذج (أو سحب المرآة
+    // أثناء الكتابة) كانت تعيد تعبئته من الصفر فتمسح ما كتبه المستخدم.
+  }, [open, part])
+
+  // التصنيفات تصل بعد فتح النموذج أحياناً (أول إقلاع): يُختار الأول إن لم يُختر شيء.
+  useEffect(() => {
+    if (open && !part && categories[0]) {
+      setDraft((d) => (d.categoryId ? d : { ...d, categoryId: categories[0].id }))
+    }
   }, [open, part, categories])
+
+  async function addCategory() {
+    if (newCategory === null) return
+    setAddingCategory(true)
+    try {
+      const c = await createCategory(newCategory)
+      if (user) await audit(user, 'تصنيف جديد', 'category', c.id, c.name)
+      setDraft((d) => ({ ...d, categoryId: c.id }))
+      setErrors((e) => ({ ...e, categoryId: '' }))
+      setNewCategory(null)
+    } catch (err) {
+      toast(err instanceof Error ? err.message : 'تعذّرت إضافة التصنيف', 'error')
+    } finally {
+      setAddingCategory(false)
+    }
+  }
 
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) =>
     setDraft((d) => ({ ...d, [key]: value }))
@@ -188,15 +218,60 @@ export function PartForm({
               dir="ltr"
             />
           </Field>
-          <Field label="التصنيف" error={errors.categoryId}>
-            <Select value={draft.categoryId} onChange={(e) => set('categoryId', e.target.value)}>
-              <option value="">— اختر —</option>
-              {categories.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </Select>
+          <Field
+            label="التصنيف"
+            error={errors.categoryId}
+            hint={categories.length === 0 ? 'لا تصنيفات بعد — أضف أولها هنا' : undefined}
+          >
+            {newCategory === null && categories.length > 0 ? (
+              <Select
+                value={draft.categoryId}
+                onChange={(e) =>
+                  e.target.value === '__new'
+                    ? setNewCategory('')
+                    : set('categoryId', e.target.value)
+                }
+              >
+                <option value="">— اختر —</option>
+                {categories.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+                <option value="__new">＋ تصنيف جديد…</option>
+              </Select>
+            ) : (
+              <div className="flex gap-2">
+                <Input
+                  autoFocus={newCategory !== null}
+                  value={newCategory ?? ''}
+                  onChange={(e) => setNewCategory(e.target.value)}
+                  onKeyDown={(e) => {
+                    // Enter هنا يضيف التصنيف لا يحفظ المنتج كله بنصف بيانات.
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      if ((newCategory ?? '').trim()) void addCategory()
+                    }
+                  }}
+                  placeholder="اسم التصنيف: بوكسات"
+                  className="flex-1"
+                />
+                <Button
+                  type="button"
+                  variant="secondary"
+                  loading={addingCategory}
+                  disabled={!(newCategory ?? '').trim()}
+                  onClick={addCategory}
+                >
+                  إضافة
+                </Button>
+                {categories.length > 0 && (
+                  <Button type="button" variant="ghost" onClick={() => setNewCategory(null)}>
+                    إلغاء
+                  </Button>
+                )}
+              </div>
+            )}
           </Field>
           <Field label="المورد" hint="مورد التغليف أو المواد — اختياري">
             <Select

@@ -19,6 +19,7 @@ import {
   Sun,
   Tags,
   Truck,
+  UserRound,
   UserRoundCog,
   Users,
   UsersRound,
@@ -245,9 +246,12 @@ export function AppShell() {
         <DemoBanner />
         <BackupReminder />
 
-        <main className="mx-auto max-w-[1400px] px-4 py-5 sm:px-6 lg:py-7">
+        {/* الحشوة السفلية تساوي ارتفاع الشريط السفلي وحافة الآيفون، وإلا اختبأ آخر
+        زر في الصفحة (حفظ، إصدار الفاتورة) تحته. */}
+        <main className="mx-auto max-w-[1400px] px-4 pt-5 pb-[calc(5.5rem+env(safe-area-inset-bottom))] sm:px-6 lg:py-7">
           <Outlet />
         </main>
+        <BottomNav />
       </div>
     </div>
   )
@@ -285,5 +289,71 @@ function Breadcrumb() {
         </>
       )}
     </div>
+  )
+}
+
+/**
+ * الشريط السفلي على الجوال: الوصول بإبهام واحد إلى أكثر الشاشات استعمالاً،
+ * بدل فتح القائمة الجانبية في كل مرة. الأسماء مختصرة لتتسع خمسة أزرار في ٣٩٠ بكسل،
+ * والاسم الكامل في `aria-label`. ما لا يملك المستخدم صلاحيته لا يظهر — الموظف لا
+ * يرى المشتريات ولا التوريد، كما في القائمة الجانبية.
+ */
+const BOTTOM_NAV: Array<NavItem & { short: string }> = [
+  { to: '/inventory', label: 'المنتجات', short: 'المنتجات', icon: Package, cap: 'inventory.view' },
+  {
+    to: '/bills',
+    label: 'فواتير المشتريات',
+    short: 'المشتريات',
+    icon: Receipt,
+    cap: 'purchase.view',
+  },
+  { to: '/purchases', label: 'طلبات التوريد', short: 'التوريد', icon: Truck, cap: 'purchase.view' },
+  { to: '/reports', label: 'التقارير', short: 'التقارير', icon: PieChart, cap: 'reports.view' },
+  { to: '/account', label: 'حسابي', short: 'حسابي', icon: UserRound },
+]
+
+function BottomNav() {
+  const { can } = useApp()
+  const items = BOTTOM_NAV.filter((i) => !i.cap || can(i.cap))
+  if (items.length === 0) return null
+  return (
+    <nav
+      aria-label="التنقل السريع"
+      className="glass fixed inset-x-0 bottom-0 z-30 border-t border-border pb-[env(safe-area-inset-bottom)] no-print lg:hidden"
+    >
+      <ul
+        className="mx-auto grid max-w-lg"
+        style={{ gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))` }}
+      >
+        {items.map(({ to, label, short, icon: Icon }) => (
+          <li key={to}>
+            <NavLink
+              to={to}
+              aria-label={label}
+              className={({ isActive }) =>
+                cn(
+                  'flex h-16 flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors',
+                  isActive ? 'text-brand-strong' : 'text-muted hover:text-text',
+                )
+              }
+            >
+              {({ isActive }) => (
+                <>
+                  <span
+                    className={cn(
+                      'grid h-7 w-12 place-items-center rounded-full transition-colors',
+                      isActive && 'bg-brand-soft',
+                    )}
+                  >
+                    <Icon className="size-[19px]" />
+                  </span>
+                  <span className="max-w-full truncate px-1">{short}</span>
+                </>
+              )}
+            </NavLink>
+          </li>
+        ))}
+      </ul>
+    </nav>
   )
 }

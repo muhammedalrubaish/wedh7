@@ -25,6 +25,7 @@ import { refreshInvoice, refreshPart, refreshParts, refreshReturn } from './mirr
 import { returnUnitPrice, returnedByPart } from './analytics'
 import { round2 } from './format'
 import {
+  fromCategory,
   fromCustomer,
   fromPart,
   fromPurchaseItem,
@@ -486,6 +487,43 @@ export async function deleteSupplier(id: string): Promise<void> {
     if (error) fail(error)
   }
   await db.suppliers.delete(id)
+}
+
+/**
+ * إنشاء تصنيف. كان غائباً تماماً: وضع العرض يزرع تصنيفاته، فلم يظهر النقص إلا على
+ * القاعدة الحقيقية الفارغة — حيث يشترط نموذج المنتج تصنيفاً، فلا يُضاف أي منتج.
+ */
+export async function createCategory(name: string, defaultMarkupPercent = 50): Promise<Category> {
+  const clean = name.trim()
+  if (!clean) throw new Error('اكتب اسم التصنيف.')
+  const existing = await db.categories.toArray()
+  if (existing.some((c) => c.name.trim() === clean)) {
+    throw new Error(`التصنيف «${clean}» موجود من قبل.`)
+  }
+  const category: Category = { id: uid('cat_'), name: clean, defaultMarkupPercent }
+  if (cloudEnabled) {
+    guardOnline()
+    const { error } = await requireClient().from('categories').insert(fromCategory(category))
+    if (error) fail(error)
+  }
+  await db.categories.put(category)
+  return category
+}
+
+/**
+ * حذف تصنيف لا يحذف منتجاته: القاعدة تضعها «بلا تصنيف» (`on delete set null`).
+ * المرآة تُحدَّث هنا بنفس المعنى كي لا تُعرض منتجات تشير إلى تصنيف لم يعد موجوداً.
+ */
+export async function deleteCategory(id: string): Promise<void> {
+  if (cloudEnabled) {
+    guardOnline()
+    const { error } = await requireClient().from('categories').delete().eq('id', id)
+    if (error) fail(error)
+  }
+  await db.transaction('rw', db.categories, db.parts, async () => {
+    await db.categories.delete(id)
+    await db.parts.where('categoryId').equals(id).modify({ categoryId: '' })
+  })
 }
 
 export async function updateCategory(id: string, patch: Partial<Category>): Promise<void> {
