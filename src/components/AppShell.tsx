@@ -18,6 +18,7 @@ import {
   Sun,
   Tags,
   Truck,
+  UserRound,
   UserRoundCog,
   Users,
   UsersRound,
@@ -78,6 +79,12 @@ const NAV: Array<{ section: string; items: NavItem[] }> = [
       { to: '/users', label: 'المستخدمون', icon: Users, cap: 'users.manage' },
       { to: '/settings', label: 'الإعدادات', icon: SettingsIcon, cap: 'settings.manage' },
     ],
+  },
+  {
+    // قسم مستقل لا بند تحت «الإدارة»: الموظف لا يرى الإدارة، ويحتاج حسابه مثل المالك.
+    // ومن هنا يغيّر صاحب المحل كلمة المرور والبريد يوم التسليم — فيجب أن يُرى بلا بحث.
+    section: 'الحساب',
+    items: [{ to: '/account', label: 'حسابي', icon: UserRound }],
   },
 ]
 
