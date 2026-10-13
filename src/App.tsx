@@ -17,7 +17,8 @@ const Dashboard = lazy(() => import('./pages/Dashboard'))
 const Inventory = lazy(() => import('./pages/Inventory'))
 const PartDetail = lazy(() => import('./pages/PartDetail'))
 const Pos = lazy(() => import('./pages/Pos'))
-const Scanner = lazy(() => import('./pages/Scanner'))
+// الماسح مخفيّ بطلب العميل («لا يستفاد منها»): الصفحة باقية في src/pages/Scanner.tsx
+// وتعود بسطر الاستيراد ومسار `scan` إن احتيج إليها. الرابط القديم يُحوَّل إلى اللوحة.
 const Invoices = lazy(() => import('./pages/Invoices'))
 const CustomersPage = lazy(() => import('./pages/Customers'))
 const Purchases = lazy(() => import('./pages/Purchases'))
@@ -93,14 +94,6 @@ export default function App() {
             element={
               <Guard cap="sales.create">
                 <Pos />
-              </Guard>
-            }
-          />
-          <Route
-            path="scan"
-            element={
-              <Guard cap="inventory.view">
-                <Scanner />
               </Guard>
             }
           />

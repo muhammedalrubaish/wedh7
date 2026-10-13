@@ -13,7 +13,6 @@ import {
   Package,
   PieChart,
   Receipt,
-  ScanLine,
   Settings as SettingsIcon,
   ShoppingCart,
   Sun,
@@ -47,7 +46,6 @@ const NAV: Array<{ section: string; items: NavItem[] }> = [
     items: [
       { to: '/', label: 'اللوحة', icon: LayoutDashboard },
       { to: '/pos', label: 'فاتورة جديدة', icon: ShoppingCart, cap: 'sales.create' },
-      { to: '/scan', label: 'الماسح', icon: ScanLine, cap: 'inventory.view' },
     ],
   },
   {
@@ -260,7 +258,6 @@ export function AppShell() {
 const TITLES: Record<string, string> = {
   '': 'اللوحة',
   pos: 'فاتورة جديدة',
-  scan: 'الماسح',
   inventory: 'المنتجات',
   pricing: 'التسعير',
   suppliers: 'الموردون',
