@@ -13,7 +13,15 @@
 export function Logo({ className = 'size-5' }: { className?: string }) {
   return (
     <svg viewBox="0 0 32 32" fill="none" className={className} aria-hidden="true">
-      <rect x="5" y="12.5" width="22" height="13" rx="2.6" stroke="currentColor" strokeWidth="2.4" />
+      <rect
+        x="5"
+        y="12.5"
+        width="22"
+        height="13"
+        rx="2.6"
+        stroke="currentColor"
+        strokeWidth="2.4"
+      />
       <circle cx="9.8" cy="11" r="3.1" fill="currentColor" />
       <circle cx="16" cy="9.6" r="3.1" fill="currentColor" />
       <circle cx="22.2" cy="11" r="3.1" fill="currentColor" />
