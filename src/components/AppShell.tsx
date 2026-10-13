@@ -18,7 +18,6 @@ import {
   Sun,
   Tags,
   Truck,
-  UserRound,
   UserRoundCog,
   Users,
   UsersRound,
@@ -291,7 +290,7 @@ function Breadcrumb() {
 
 /**
  * الشريط السفلي على الجوال: الوصول بإبهام واحد إلى أكثر الشاشات استعمالاً،
- * بدل فتح القائمة الجانبية في كل مرة. الأسماء مختصرة لتتسع خمسة أزرار في ٣٩٠ بكسل،
+ * بدل فتح القائمة الجانبية في كل مرة. الأسماء مختصرة لتتسع الأزرار في ٣٩٠ بكسل،
  * والاسم الكامل في `aria-label`. ما لا يملك المستخدم صلاحيته لا يظهر — الموظف لا
  * يرى المشتريات ولا التوريد، كما في القائمة الجانبية.
  */
@@ -304,16 +303,17 @@ const BOTTOM_NAV: Array<NavItem & { short: string }> = [
     icon: Receipt,
     cap: 'purchase.view',
   },
-  { to: '/purchases', label: 'طلبات التوريد', short: 'التوريد', icon: Truck, cap: 'purchase.view' },
   { to: '/reports', label: 'التقارير', short: 'التقارير', icon: PieChart, cap: 'reports.view' },
-  { to: '/account', label: 'حسابي', short: 'حسابي', icon: UserRound },
+  // التوريد في مكان «حسابي» بطلب العميل: زران على كل جانب من «اللوحة» فيتوازن الشريط.
+  // «حسابي» باقٍ في القائمة الجانبية (اسم المستخدم أسفلها) — يُفتح نادراً.
+  { to: '/purchases', label: 'طلبات التوريد', short: 'التوريد', icon: Truck, cap: 'purchase.view' },
 ]
 
 function BottomNav() {
   const { can } = useApp()
   const items = BOTTOM_NAV.filter((i) => !i.cap || can(i.cap))
   // نصفان متساويا العرض واللوحة بينهما: هكذا تقع في المنتصف تماماً مهما كان عدد
-  // الأزرار على كل جانب (خمسة للمالك، اثنان للموظف). النصف الأول يمين في RTL.
+  // الأزرار على كل جانب (أربعة للمالك، اثنان للموظف). النصف الأول يمين في RTL.
   const half = Math.ceil(items.length / 2)
   const sides = [items.slice(0, half), items.slice(half)]
 
