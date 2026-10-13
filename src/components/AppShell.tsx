@@ -25,6 +25,7 @@ import {
 } from 'lucide-react'
 import { Badge, Button, cn } from './ui'
 import { DemoBanner } from './DemoBanner'
+import { BackupReminder } from './BackupReminder'
 import { Logo } from './Logo'
 import { useApp } from '@/store/app'
 import { ROLE_LABELS, type Capability } from '@/lib/permissions'
@@ -242,6 +243,7 @@ export function AppShell() {
           </Button>
         </header>
         <DemoBanner />
+        <BackupReminder />
 
         <main className="mx-auto max-w-[1400px] px-4 py-5 sm:px-6 lg:py-7">
           <Outlet />

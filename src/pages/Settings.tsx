@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import {
   AlertTriangle,
   Bot,
@@ -26,6 +27,7 @@ import {
 import { exportAll, importAll, wipe } from '@/lib/db'
 import { cloudAuth } from '@/lib/auth'
 import { fetchBackup } from '@/lib/mirror'
+import { markBackedUp } from '@/lib/backupReminder'
 import { seed } from '@/lib/seed'
 import { useApp } from '@/store/app'
 import type { Settings } from '@/lib/types'
@@ -68,6 +70,17 @@ export default function SettingsPage() {
   const [exporting, setExporting] = useState(false)
   const [lastBackup, setLastBackup] = useState<Record<string, number> | null>(null)
   const [prepared, setPrepared] = useState<File | null>(null)
+  const location = useLocation()
+  const navigate = useNavigate()
+
+  // القدوم من شريط التذكير: تجهيز النسخة فوراً بدل أن يبحث عن الزر أسفل الصفحة.
+  // المعامل يُمسح كي لا يعيد تحديثُ الصفحة التجهيزَ مرة أخرى.
+  useEffect(() => {
+    if (new URLSearchParams(location.search).get('backup') !== '1') return
+    navigate('/settings', { replace: true })
+    document.getElementById('backup')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    void prepareBackup()
+  }, [location.search])
   const fileRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => setDraft(settings), [settings])
@@ -111,11 +124,13 @@ export default function SettingsPage() {
       // الملف وحده بلا نص: على iOS إرفاق نصّ مع الملف يجعل بعض التطبيقات (واتساب)
       // ترسل النص وتُسقط الملف.
       await navigator.share({ files: [file] })
+      markBackedUp()
       setPrepared(null)
       toast('تم إرسال النسخة')
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') return // أغلق القائمة بنفسه
       downloadFile(file)
+      markBackedUp()
       toast('تعذّرت المشاركة — نُزّل الملف بدلاً منها', 'warn')
     }
   }
@@ -381,7 +396,7 @@ export default function SettingsPage() {
         </div>
       </Card>
 
-      <Card>
+      <Card id="backup">
         <CardHeader
           title="البيانات"
           subtitle={
@@ -464,6 +479,7 @@ export default function SettingsPage() {
                 variant="ghost"
                 onClick={() => {
                   downloadFile(prepared)
+                  markBackedUp()
                   setPrepared(null)
                   toast('تم تنزيل النسخة الاحتياطية')
                 }}
