@@ -7,91 +7,101 @@
    so retheming the app means editing this block and nothing else.
    --------------------------------------------------------------------------- */
 :root {
-  --bg: oklch(0.985 0.005 70);
-  --bg-subtle: oklch(0.965 0.008 70);
-  --surface: oklch(1 0 0);
-  --surface-2: oklch(0.978 0.006 70);
-  --border: oklch(0.912 0.008 250);
-  --border-strong: oklch(0.855 0.012 250);
+  /* هوية «وضح» مأخوذة من البوكس والشعار نفسيهما (قياس بكسلات لا تقدير بالعين):
+     عنابي البوكس #702928، عنابي الشعار البني #4c1e21، بيج الحروف على الغطاء #d9af97،
+     كريمي الجمل #e1cfc0، وكراميل وجه الحلى #bf7f4b. الخلفية كريمية دافئة كالطاولة في
+     صورة المنتج، لا بيضاء باردة. */
+  --bg: oklch(0.972 0.012 65);
+  --bg-subtle: oklch(0.955 0.016 62);
+  --surface: oklch(0.995 0.004 70);
+  --surface-2: oklch(0.962 0.014 60);
+  --border: oklch(0.895 0.022 52);
+  --border-strong: oklch(0.82 0.034 48);
 
-  --text: oklch(0.25 0.02 255);
-  --text-muted: oklch(0.53 0.018 255);
-  --text-faint: oklch(0.66 0.015 255);
+  /* النص عنابي-بني داكن لا أسود: من لون كتابة الشعار، بتباين قراءة كامل على الكريمي. */
+  --text: oklch(0.27 0.055 20);
+  --text-muted: oklch(0.5 0.04 32);
+  --text-faint: oklch(0.63 0.032 45);
 
-  --brand: oklch(0.6 0.16 50);
-  --brand-strong: oklch(0.5 0.16 48);
-  --brand-soft: oklch(0.955 0.035 60);
-  --on-brand: oklch(0.99 0 0);
+  --brand: oklch(0.385 0.101 24);
+  --brand-strong: oklch(0.304 0.07 18);
+  --brand-soft: oklch(0.935 0.028 45);
+  --on-brand: oklch(0.975 0.012 70);
 
-  --accent: oklch(0.6 0.17 350);
-  --accent-soft: oklch(0.955 0.03 350);
+  /* الكراميل للعينات والتمييز الثانوي — لون وجه الحلى في الصورة. */
+  --accent: oklch(0.6 0.105 55);
+  --accent-soft: oklch(0.94 0.035 65);
 
-  --ok: oklch(0.62 0.14 155);
-  --ok-soft: oklch(0.95 0.04 155);
-  --warn: oklch(0.72 0.15 75);
-  --warn-soft: oklch(0.96 0.05 80);
-  --danger: oklch(0.58 0.19 25);
+  --ok: oklch(0.56 0.12 150);
+  --ok-soft: oklch(0.945 0.04 150);
+  --warn: oklch(0.66 0.14 70);
+  --warn-soft: oklch(0.955 0.05 80);
+  /* الخطر أحمر صريح أفتح وأشدّ تشبّعاً من عنابي الهوية: لو تشابها لبدا زر الحذف
+     كزر رئيسي، والخلط بينهما هنا يحذف بيانات. */
+  --danger: oklch(0.56 0.2 27);
   --danger-soft: oklch(0.95 0.04 25);
 
-  --ring: oklch(0.6 0.16 50 / 0.45);
-  --shadow-color: 220 30% 40%;
+  --ring: oklch(0.385 0.101 24 / 0.32);
+  --shadow-color: 15 35% 25%;
 
   /* الخلفية ثلاثية الأبعاد واللمسة الزجاجية.
      الشفافية مضبوطة عالياً عمداً: هذه شاشة يقرأ منها الفني أرقاماً وهو واقف خلف
      الكاونتر، ولوحة «جميلة» بتباين ضعيف تعني رقماً يُقرأ خطأ. */
-  --grid-line: oklch(0.6 0.12 55 / 0.2);
-  --grid-glow: oklch(0.6 0.16 50 / 0.16);
+  --grid-line: oklch(0.6 0.08 40 / 0.16);
+  --grid-glow: oklch(0.45 0.1 25 / 0.12);
   /* نقطة التلاشي، وحجاب الأطراف، وخط الضوء الزاحف على الشبكة */
-  --room-core: oklch(0.66 0.1 55 / 0.1);
-  --room-veil: oklch(0.985 0.006 70 / 0.86);
-  --room-streak: oklch(0.6 0.15 50 / 0.5);
-  --room-glow: oklch(0.64 0.14 55 / 0.22);
-  --panel: oklch(1 0 0 / 0.66);
-  --panel-edge: oklch(1 0 0 / 0.65);
+  --room-core: oklch(0.7 0.07 55 / 0.12);
+  --room-veil: oklch(0.972 0.012 65 / 0.86);
+  --room-streak: oklch(0.45 0.1 25 / 0.42);
+  --room-glow: oklch(0.65 0.1 55 / 0.22);
+  --panel: oklch(0.995 0.004 70 / 0.7);
+  --panel-edge: oklch(1 0 0 / 0.6);
   --panel-blur: 14px;
 
   color-scheme: light;
 }
 
 .dark {
-  --bg: oklch(0.19 0.015 40);
-  --bg-subtle: oklch(0.165 0.015 40);
-  --surface: oklch(0.235 0.016 40);
-  --surface-2: oklch(0.275 0.017 40);
-  --border: oklch(0.33 0.017 40);
-  --border-strong: oklch(0.42 0.02 40);
+  /* الداكن يقلب الأدوار: الخلفية عنابي-بني عميق كظلّ البوكس، والأزرار بيج الحروف
+     بنصّ عنابي — العنابي الداكن على خلفية داكنة لا يُقرأ. */
+  --bg: oklch(0.175 0.022 22);
+  --bg-subtle: oklch(0.155 0.02 22);
+  --surface: oklch(0.225 0.028 22);
+  --surface-2: oklch(0.265 0.032 24);
+  --border: oklch(0.33 0.034 26);
+  --border-strong: oklch(0.42 0.04 32);
 
-  --text: oklch(0.955 0.006 250);
-  --text-muted: oklch(0.75 0.014 255);
-  --text-faint: oklch(0.62 0.016 255);
+  --text: oklch(0.95 0.016 70);
+  --text-muted: oklch(0.78 0.035 55);
+  --text-faint: oklch(0.63 0.034 45);
 
-  --brand: oklch(0.76 0.14 60);
-  --brand-strong: oklch(0.84 0.12 65);
-  --brand-soft: oklch(0.32 0.06 55);
-  --on-brand: oklch(0.17 0.02 250);
+  --brand: oklch(0.786 0.059 51);
+  --brand-strong: oklch(0.865 0.045 62);
+  --brand-soft: oklch(0.32 0.06 24);
+  --on-brand: oklch(0.304 0.07 18);
 
-  --accent: oklch(0.76 0.14 350);
-  --accent-soft: oklch(0.32 0.07 350);
+  --accent: oklch(0.74 0.1 62);
+  --accent-soft: oklch(0.32 0.05 55);
 
-  --ok: oklch(0.75 0.15 158);
-  --ok-soft: oklch(0.31 0.06 158);
-  --warn: oklch(0.81 0.15 78);
-  --warn-soft: oklch(0.34 0.06 78);
-  --danger: oklch(0.7 0.17 25);
+  --ok: oklch(0.75 0.14 155);
+  --ok-soft: oklch(0.3 0.055 155);
+  --warn: oklch(0.81 0.14 78);
+  --warn-soft: oklch(0.33 0.06 75);
+  --danger: oklch(0.7 0.18 27);
   --danger-soft: oklch(0.33 0.08 25);
 
-  --ring: oklch(0.76 0.14 60 / 0.5);
-  --shadow-color: 240 40% 3%;
+  --ring: oklch(0.786 0.059 51 / 0.45);
+  --shadow-color: 15 50% 4%;
 
   /* الداكن يحتمل شفافية أعلى وتوهّجاً أوضح — الخطوط تظهر بلا أن تبتلع النص. */
-  --grid-line: oklch(0.76 0.14 60 / 0.17);
-  --grid-glow: oklch(0.76 0.14 60 / 0.14);
-  --room-core: oklch(0.72 0.1 60 / 0.14);
-  --room-veil: oklch(0.13 0.015 40 / 0.92);
-  --room-streak: oklch(0.96 0.05 70 / 0.8);
-  --room-glow: oklch(0.85 0.12 65 / 0.4);
-  --panel: oklch(0.235 0.016 40 / 0.66);
-  --panel-edge: oklch(0.82 0.06 60 / 0.14);
+  --grid-line: oklch(0.786 0.059 51 / 0.13);
+  --grid-glow: oklch(0.6 0.1 30 / 0.16);
+  --room-core: oklch(0.5 0.09 28 / 0.18);
+  --room-veil: oklch(0.13 0.02 22 / 0.92);
+  --room-streak: oklch(0.88 0.05 62 / 0.7);
+  --room-glow: oklch(0.786 0.059 51 / 0.32);
+  --panel: oklch(0.225 0.028 22 / 0.68);
+  --panel-edge: oklch(0.86 0.04 60 / 0.12);
   --panel-blur: 16px;
 
   color-scheme: dark;

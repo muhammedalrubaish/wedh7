@@ -13,8 +13,9 @@
 import { deflateSync } from 'node:zlib'
 import { writeFileSync, mkdirSync } from 'node:fs'
 
-const BRAND = [0xc2, 0x41, 0x0c]
-const WHITE = [0xff, 0xff, 0xff]
+// عنابي البوكس وبيج الحروف على غطائه — نفس ألوان `index.css` وأيقونة التبويب.
+const BRAND = [0x70, 0x29, 0x28]
+const WHITE = [0xd9, 0xaf, 0x97]
 
 /* -------------------------------------------------------------------------- */
 /* هندسة الأيقونة — بإحداثيات الـ viewBox الأصلي (32×32)، انظر `Logo.tsx`       */
@@ -143,7 +144,7 @@ function render(size, { rounded = true, inset = 1 } = {}) {
       const a = bg / n
       const f = fg / n
       const i = (y * size + x) * 4
-      // الشكل أبيض فوق خلفية كراميل — يُمزجان قبل الكتابة كي تبقى الحواف نظيفة
+      // الشكل بيج فوق خلفية عنابية — يُمزجان قبل الكتابة كي تبقى الحواف نظيفة
       for (let c = 0; c < 3; c++) rgba[i + c] = Math.round(BRAND[c] * (1 - f) + WHITE[c] * f)
       rgba[i + 3] = Math.round(255 * a)
     }
