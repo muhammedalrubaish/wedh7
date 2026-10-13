@@ -14,7 +14,9 @@
  * كتابة يمرّ بالخادم أولاً ثم يحدّث المرآة — انظر `repo.ts`.
  */
 import { db, getSettings } from './db'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { humanError, isMissingSchema, requireClient } from './supabase'
+import { selectAllWith, type Source } from './paging'
 import {
   toCategory,
   toCustomer,
@@ -64,6 +66,34 @@ function groupBy(data: unknown, key: string): Map<string, Row[]> {
 }
 
 /**
+ * مصادر القراءة — مصدر واحد للمرآة وللنسخة الاحتياطية، فلا يُضاف جدول إلى
+ * أحدهما وينسى الآخر (هذا ما حدث فعلاً لجداول المشتريات في التصدير القديم).
+ */
+export const selectAll = (source: Source<SupabaseClient>, cap?: number) =>
+  selectAllWith(requireClient(), source, cap)
+
+export const SOURCES = {
+  categories: (c) => c.from('categories').select('*').order('id'),
+  suppliers: (c) => c.from('suppliers').select('*').order('id'),
+  customers: (c) => c.from('customers').select('*').order('id'),
+  parts: (c) => c.from('parts_v').select('*').order('id'),
+  movements: (c) =>
+    c
+      .from('stock_movements_v')
+      .select('*')
+      .order('at', { ascending: false })
+      .order('id', { ascending: false }),
+  invoices: (c) => c.from('invoices_v').select('*').order('id'),
+  invoiceLines: (c) => c.from('invoice_lines_v').select('*').order('id'),
+  returns: (c) => c.from('returns_v').select('*').order('id'),
+  returnLines: (c) => c.from('return_lines_v').select('*').order('id'),
+  purchaseOrders: (c) => c.from('purchase_orders').select('*, purchase_order_lines(*)').order('id'),
+  profiles: (c) => c.from('profiles').select('*').order('id'),
+  purchaseItems: (c) => c.from('purchase_items').select('*').order('id'),
+  purchaseBills: (c) => c.from('purchase_bills').select('*, purchase_bill_lines(*)').order('id'),
+} satisfies Record<string, Source<SupabaseClient>>
+
+/**
  * القراءة تمرّ بالمناظر لا بالجداول — وهذا شرط لا تفضيل.
  *
  * `parts` ممنوحة بالأعمدة: كل عمود عدا `cost`. فطلب `select *` عليها يُرفض
@@ -91,24 +121,21 @@ export async function pullAll(): Promise<void> {
     items,
     bills,
   ] = await Promise.all([
-    client.from('categories').select('*'),
-    client.from('suppliers').select('*'),
-    client.from('customers').select('*'),
-    client.from('parts_v').select('*'),
-    client
-      .from('stock_movements_v')
-      .select('*')
-      .order('at', { ascending: false })
-      .limit(MOVEMENT_WINDOW),
-    client.from('invoices_v').select('*'),
-    client.from('invoice_lines_v').select('*'),
-    client.from('returns_v').select('*'),
-    client.from('return_lines_v').select('*'),
-    client.from('purchase_orders').select('*, purchase_order_lines(*)'),
+    selectAll(SOURCES.categories),
+    selectAll(SOURCES.suppliers),
+    selectAll(SOURCES.customers),
+    selectAll(SOURCES.parts),
+    // الأحدث أولاً حتى السقف: القديم جداً لا يُعرض إلا في سجل المنتج، والرصيد لا يُشتق منه.
+    selectAll(SOURCES.movements, MOVEMENT_WINDOW),
+    selectAll(SOURCES.invoices),
+    selectAll(SOURCES.invoiceLines),
+    selectAll(SOURCES.returns),
+    selectAll(SOURCES.returnLines),
+    selectAll(SOURCES.purchaseOrders),
     client.from('settings_v').select('*').eq('id', 'app').maybeSingle(),
-    client.from('profiles').select('*'),
-    client.from('purchase_items').select('*'),
-    client.from('purchase_bills').select('*, purchase_bill_lines(*)'),
+    selectAll(SOURCES.profiles),
+    selectAll(SOURCES.purchaseItems),
+    selectAll(SOURCES.purchaseBills),
   ])
 
   purchasesSchemaReady = !isMissingSchema(items.error) && !isMissingSchema(bills.error)
@@ -269,4 +296,44 @@ export async function refreshReturn(returnId: string): Promise<void> {
   if (lines.error) throw new Error(humanError(lines.error))
   if (!ret.data) return
   await db.returns.put(toReturnNote({ ...(ret.data as Row), return_lines: lines.data ?? [] }))
+}
+
+/**
+ * نسخة احتياطية كاملة من **الخادم** لا من المرآة.
+ *
+ * المرآة ليست نسخة: دفتر الحركة فيها مقصوص عند `MOVEMENT_WINDOW`، وتُستبدل عند كل
+ * إقلاع. النسخة هنا تُسحب جدولاً جدولاً على صفحات، والدفتر كاملاً بلا سقف.
+ *
+ * الصفوف تُحفظ كما هي في القاعدة (`snake_case`) لا بنماذج الواجهة: هكذا تُستعاد
+ * إلى Postgres لاحقاً بلا ترجمة عكسية تُخطئ بصمت. والتكلفة تصل `null` لمن لا يملك
+ * صلاحيتها — النسخة لا تكشف أكثر مما تكشفه الشاشات لنفس الحساب.
+ */
+export async function fetchBackup(): Promise<{ json: string; counts: Record<string, number> }> {
+  const client = requireClient()
+  const entries = await Promise.all(
+    Object.entries(SOURCES).map(async ([name, src]) => [name, await selectAll(src)] as const),
+  )
+  const settings = await client.from('settings_v').select('*').eq('id', 'app').maybeSingle()
+  if (settings.error) throw new Error(humanError(settings.error))
+
+  const tables: Record<string, Row[]> = { settings: settings.data ? [settings.data as Row] : [] }
+  for (const [name, r] of entries) {
+    if (r.error) {
+      // جداول المشتريات قد لا تكون طُبّقت بعد — غيابها ليس سبباً لإفشال النسخة كلها.
+      if (isMissingSchema(r.error)) {
+        tables[name] = []
+        continue
+      }
+      throw new Error(humanError(r.error))
+    }
+    tables[name] = r.data ?? []
+  }
+
+  const counts = Object.fromEntries(Object.entries(tables).map(([k, v]) => [k, v.length]))
+  const json = JSON.stringify(
+    { app: 'wedh7', source: 'server', version: 1, exportedAt: new Date().toISOString(), tables },
+    null,
+    1,
+  )
+  return { json, counts }
 }

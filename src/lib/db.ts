@@ -222,6 +222,8 @@ const TABLES = [
   'parts',
   'movements',
   'purchaseOrders',
+  'purchaseItems',
+  'purchaseBills',
   'invoices',
   'returns',
   'settings',
@@ -238,7 +240,19 @@ export async function exportAll(): Promise<string> {
 }
 
 export async function importAll(json: string): Promise<void> {
-  const data = JSON.parse(json) as Record<string, unknown[]>
+  const data = JSON.parse(json) as Record<string, unknown>
+  // الاستيراد يمسح كل شيء ثم يضيف ما في الملف. فملف بصيغة أخرى — نسخة الخادم مثلاً،
+  // وجداولها تحت `tables` — كان سيمسح المتصفح ولا يضيف شيئاً. الفحص قبل أي مسح.
+  if (data?.source === 'server') {
+    throw new Error('هذه نسخة من قاعدة البيانات على الخادم، ولا تُستورد في وضع العرض.')
+  }
+  if (
+    typeof data?.version !== 'number' ||
+    !Array.isArray(data.parts) ||
+    !Array.isArray(data.invoices)
+  ) {
+    throw new Error('الملف ليس نسخة احتياطية من وضح.')
+  }
   await db.transaction(
     'rw',
     TABLES.map((t) => db[t]),
@@ -246,7 +260,7 @@ export async function importAll(json: string): Promise<void> {
       await Promise.all(TABLES.map((t) => db[t].clear()))
       await Promise.all(
         TABLES.map((t: TableName) =>
-          (db[t] as Table<unknown, string>).bulkAdd((data[t] ?? []) as never[]),
+          (db[t] as Table<unknown, string>).bulkAdd(((data[t] as unknown[]) ?? []) as never[]),
         ),
       )
     },

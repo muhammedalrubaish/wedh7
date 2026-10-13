@@ -24,6 +24,7 @@ import {
 } from '@/components/ui'
 import { exportAll, importAll, wipe } from '@/lib/db'
 import { cloudAuth } from '@/lib/auth'
+import { fetchBackup } from '@/lib/mirror'
 import { seed } from '@/lib/seed'
 import { useApp } from '@/store/app'
 import type { Settings } from '@/lib/types'
@@ -53,6 +54,8 @@ export default function SettingsPage() {
   const [draft, setDraft] = useState<Settings>(settings)
   const [saving, setSaving] = useState(false)
   const [resetOpen, setResetOpen] = useState(false)
+  const [exporting, setExporting] = useState(false)
+  const [lastBackup, setLastBackup] = useState<Record<string, number> | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => setDraft(settings), [settings])
@@ -71,14 +74,28 @@ export default function SettingsPage() {
   }
 
   async function doExport() {
-    const json = await exportAll()
-    const url = URL.createObjectURL(new Blob([json], { type: 'application/json' }))
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `wedh7-backup-${new Date().toISOString().slice(0, 10)}.json`
-    a.click()
-    URL.revokeObjectURL(url)
-    toast('تم تنزيل النسخة الاحتياطية')
+    setExporting(true)
+    try {
+      // في الوضع السحابي من الخادم لا من المرآة: المرآة مقصوصة ولا تُعدّ نسخة.
+      const { json, counts } = cloudAuth
+        ? await fetchBackup()
+        : { json: await exportAll(), counts: null }
+      const url = URL.createObjectURL(new Blob([json], { type: 'application/json' }))
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `wedh7-backup-${new Date().toISOString().slice(0, 10)}.json`
+      document.body.append(a)
+      a.click()
+      a.remove()
+      // الإلغاء الفوري يقطع التنزيل في Safari على الآيفون قبل أن يبدأ.
+      setTimeout(() => URL.revokeObjectURL(url), 60_000)
+      setLastBackup(counts)
+      toast('تم تنزيل النسخة الاحتياطية')
+    } catch (err) {
+      toast(err instanceof Error ? err.message : 'تعذّر تنزيل النسخة', 'error')
+    } finally {
+      setExporting(false)
+    }
   }
 
   async function doImport(file: File) {
@@ -86,8 +103,11 @@ export default function SettingsPage() {
       await importAll(await file.text())
       toast('تم استيراد البيانات — سيُعاد تحميل الصفحة')
       setTimeout(() => window.location.reload(), 900)
-    } catch {
-      toast('الملف غير صالح', 'error')
+    } catch (err) {
+      toast(
+        err instanceof Error && !(err instanceof SyntaxError) ? err.message : 'الملف غير صالح',
+        'error',
+      )
     }
   }
 
@@ -332,20 +352,26 @@ export default function SettingsPage() {
           title="البيانات"
           subtitle={
             cloudAuth
-              ? 'البيانات على الخادم وتُنسخ احتياطياً هناك — هذه نسخة إضافية بيدك'
+              ? // المجانية بلا نسخ يومية قابلة للتنزيل؛ الوعد بغيرها حماية وهمية.
+                'على الخطة المجانية لا ينسخ Supabase بياناتك احتياطياً — نزّل نسخة بيدك كل أسبوع'
               : 'النسخ الاحتياطي هو مسؤوليتك — البيانات داخل هذا المتصفح فقط'
           }
           icon={<Database className="size-[18px]" />}
         />
         <div className="flex flex-wrap gap-2 p-4">
-          <Button variant="secondary" onClick={doExport}>
+          <Button variant="secondary" onClick={doExport} loading={exporting}>
             <Download className="size-4" />
             تنزيل نسخة احتياطية
           </Button>
-          <Button variant="secondary" onClick={() => fileRef.current?.click()}>
-            <Upload className="size-4" />
-            استيراد نسخة
-          </Button>
+          {/* في الوضع السحابي كان الاستيراد يكتب في مرآة المتصفح وحدها ويقول «تم»، ثم
+          يمحوها أول سحب من الخادم بعد إعادة التحميل — نجاح وهمي. يبقى مخفياً هناك حتى
+          تُعتمد دالة استعادة على الخادم نفسه. */}
+          {!cloudAuth && (
+            <Button variant="secondary" onClick={() => fileRef.current?.click()}>
+              <Upload className="size-4" />
+              استيراد نسخة
+            </Button>
+          )}
           <input
             ref={fileRef}
             type="file"
@@ -364,6 +390,25 @@ export default function SettingsPage() {
             </Button>
           )}
         </div>
+        {cloudAuth && (
+          <div className="space-y-2 border-t border-border px-4 py-3 text-[12px] leading-5 text-muted">
+            <p>
+              النسخة تُسحب كاملة من قاعدة البيانات: المنتجات والمحلات والفواتير والمرتجعات ودفتر
+              الحركة كله وفواتير المشتريات. احفظ الملف في مكان لا يصله غيرك.
+            </p>
+            <p>
+              استعادة الملف إلى قاعدة البيانات غير متاحة من هذه الشاشة بعد. الملف نفسه كامل ومحفوظ
+              بيدك.
+            </p>
+            {lastBackup && (
+              <p className="tnum rounded-lg bg-surface-2 px-2.5 py-1.5">
+                آخر نسخة: {lastBackup.invoices ?? 0} فاتورة · {lastBackup.invoiceLines ?? 0} بند ·{' '}
+                {lastBackup.movements ?? 0} حركة مخزون · {lastBackup.purchaseBills ?? 0} فاتورة
+                مشتريات
+              </p>
+            )}
+          </div>
+        )}
         {!cloudAuth && (
           <p className="border-t border-border px-4 py-3 text-[12px] text-muted">
             مسح بيانات المتصفح (أو فتح النظام من متصفح/جهاز آخر) يعني بداية من الصفر. نزّل نسخة

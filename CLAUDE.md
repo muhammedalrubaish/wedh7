@@ -154,6 +154,8 @@
 ```
 src/lib/db.ts          ★ حدود التخزين الوحيدة
 src/lib/repo.ts        ★ حدود الكتابة الوحيدة (بيع، مرتجع، استرجاع، إنتاج)
+src/lib/mirror.ts      سحب القاعدة إلى المرآة + النسخة الاحتياطية الكاملة من الخادم
+src/lib/paging.ts      السحب على صفحات — Supabase يقصّ كل طلب عند ١٠٠٠ صف بصمت
 src/lib/types.ts       نماذج المجال — تنطبق ١:١ على جداول SQL
 src/lib/analytics.ts   الملخصات، حسب العميل، العينات، المرتجعات، تنبيه الإنتاج
 src/lib/whatsapp.ts    نصوص واتساب وروابط wa.me
@@ -171,7 +173,7 @@ npm install
 npm run dev        # http://localhost:5173
 npm run build      # tsc -b && vite build
 npm run typecheck
-npm run test:rows  # مطابقة أسماء الأعمدة بين rows.ts والمخطّط
+npm run test:rows  # مطابقة أسماء الأعمدة بين rows.ts والمخطّط + السحب على صفحات
 npx prettier --write "src/**/*.{ts,tsx}"
 ```
 
