@@ -452,7 +452,7 @@ export default function Reports() {
                       <td className="px-4 py-2.5 font-medium">
                         <span className="flex flex-wrap items-center gap-1.5">
                           {c.name}
-                          {c.unpaid > 0 && showMoney && <Badge tone="warn">آجل</Badge>}
+                          {c.unpaid > 0 && showMoney && <Badge tone="warn">لم يتم السداد</Badge>}
                         </span>
                       </td>
                       <td className="tnum hidden px-3 py-2.5 text-muted sm:table-cell">

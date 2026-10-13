@@ -3,12 +3,8 @@ import { dateTime, money, num } from '@/lib/format'
 import { zatcaQrPayload } from '@/lib/zatca'
 import type { Invoice, ReturnNote, Settings } from '@/lib/types'
 
-const PAYMENT_LABELS: Record<Invoice['paymentMethod'], string> = {
-  cash: 'نقداً',
-  card: 'شبكة',
-  transfer: 'تحويل',
-  credit: 'آجل',
-}
+/** ما يهمّ المحل على فاتورته: هل دفع أم لا — لا وسيلة الدفع. */
+const paidLabel = (inv: Invoice) => (inv.status === 'unpaid' ? 'لم يتم السداد' : 'تم السداد')
 
 /**
  * الفاتورة الضريبية المبسطة جاهزة للطباعة. تُعرض على الشاشة داخل نافذة وتُطبع
@@ -129,7 +125,7 @@ export function InvoiceDoc({
           <span>الإجمالي المستحق</span>
           <span>{money(invoice.total)}</span>
         </div>
-        <Row label="طريقة الدفع" value={PAYMENT_LABELS[invoice.paymentMethod]} />
+        <Row label="السداد" value={paidLabel(invoice)} />
         {freeTotal > 0 && <Row label="بوكسات مُسلَّمة بلا مقابل" value={num(freeTotal)} />}
       </div>
 

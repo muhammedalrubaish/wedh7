@@ -107,7 +107,8 @@ export default function Customers() {
           r.freeBoxes += l.freeQty
         }
         // الآجل دَين على الزبون لا مبيعة مقبوضة — يُعرض وحده كي يُطالَب به.
-        if (inv.paymentMethod === 'credit') r.unpaid += inv.total
+        // الحالة لا طريقة الدفع: ما سُدّد لاحقاً يخرج من الدَّين.
+        if (inv.status === 'unpaid') r.unpaid += inv.total
       }
     }
     for (const ret of returns) {
@@ -117,7 +118,7 @@ export default function Customers() {
       r.spent -= ret.total
       r.returned += ret.total
       const inv = r.invoices.find((i) => i.id === ret.invoiceId)
-      if (inv?.paymentMethod === 'credit') r.unpaid -= ret.total
+      if (inv?.status === 'unpaid') r.unpaid -= ret.total
     }
     for (const r of byCustomer.values()) {
       r.invoices.sort((a, b) => b.createdAt - a.createdAt)
@@ -194,11 +195,7 @@ export default function Customers() {
           <Stat label="إجمالي مشترياتهم" value={money(totals.spent, { compact: true })} tone="ok" />
         )}
         {showMoney && (
-          <Stat
-            label="آجل لم يُحصَّل"
-            value={money(totals.unpaid, { compact: true })}
-            tone="warn"
-          />
+          <Stat label="لم يتم السداد" value={money(totals.unpaid, { compact: true })} tone="warn" />
         )}
       </div>
 
@@ -341,7 +338,7 @@ function CustomerTable({
                 <td className="px-4 py-2.5 font-medium">
                   <span className="flex flex-wrap items-center gap-1.5">
                     {r.customer.name}
-                    {r.unpaid > 0 && showMoney && <Badge tone="warn">آجل</Badge>}
+                    {r.unpaid > 0 && showMoney && <Badge tone="warn">لم يتم السداد</Badge>}
                     {r.returns.length > 0 && <Badge tone="neutral">{r.returns.length} مرتجع</Badge>}
                   </span>
                 </td>
@@ -478,7 +475,7 @@ function CustomerDetail({
             />
             {showMoney && <Stat label="الصافي بعد المرتجع" value={money(rollup.spent)} tone="ok" />}
             {showMoney && rollup.unpaid > 0 ? (
-              <Stat label="آجل عليه" value={money(rollup.unpaid)} tone="warn" />
+              <Stat label="لم يتم السداد" value={money(rollup.unpaid)} tone="warn" />
             ) : (
               <Stat label="مرتجعات" value={num(rollup.returns.length)} tone="neutral" />
             )}
@@ -549,9 +546,7 @@ function CustomerDetail({
                             <span className="flex items-center gap-1.5">
                               {inv.number}
                               {inv.status === 'refunded' && <Badge tone="danger">مسترجعة</Badge>}
-                              {inv.status !== 'refunded' && inv.paymentMethod === 'credit' && (
-                                <Badge tone="warn">آجل</Badge>
-                              )}
+                              {inv.status === 'unpaid' && <Badge tone="warn">لم يتم السداد</Badge>}
                             </span>
                           </td>
                           <td className="tnum whitespace-nowrap px-2 py-2 text-muted">

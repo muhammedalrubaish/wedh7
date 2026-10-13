@@ -21,7 +21,7 @@ import {
 import { InvoiceDoc } from '@/components/InvoiceDoc'
 import { Stat } from '@/components/Stat'
 import { db } from '@/lib/db'
-import { audit, buildReturn, createReturn, refundInvoice } from '@/lib/repo'
+import { audit, buildReturn, createReturn, refundInvoice, setInvoicePaid } from '@/lib/repo'
 import { daysAgo, dateTime, endOfDay, money, num } from '@/lib/format'
 import { printInvoice, printReturn } from '@/lib/print'
 import { returnedByPart, summarize } from '@/lib/analytics'
@@ -35,13 +35,6 @@ type RangeKey = 'today' | 'week' | 'month' | 'all'
 type View = 'invoices' | 'returns'
 
 const RANGE_DAYS: Record<RangeKey, number> = { today: 1, week: 7, month: 30, all: 3650 }
-
-const PAYMENT_LABELS: Record<Invoice['paymentMethod'], string> = {
-  cash: 'نقداً',
-  card: 'شبكة',
-  transfer: 'تحويل',
-  credit: 'آجل',
-}
 
 export default function Invoices() {
   const { settings, user, can } = useApp()
@@ -209,74 +202,50 @@ export default function Invoices() {
             />
           ) : (
             <>
-              <div className="overflow-x-auto">
-                <table className="w-full text-[13px]">
-                  <thead>
-                    <tr className="border-b border-border bg-surface-2 text-right text-[12px] text-muted">
-                      <th className="px-4 py-2.5 font-medium">الرقم</th>
-                      <th className="px-3 py-2.5 font-medium">التاريخ</th>
-                      <th className="hidden px-3 py-2.5 font-medium sm:table-cell">العميل</th>
-                      <th className="hidden px-3 py-2.5 font-medium lg:table-cell">البائع</th>
-                      <th className="hidden px-3 py-2.5 font-medium sm:table-cell">الدفع</th>
-                      <th className="px-3 py-2.5 font-medium">الإجمالي</th>
-                      <th className="px-3 py-2.5" />
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border">
-                    {slice.map((inv) => {
-                      const rets = returnsByInvoice.get(inv.id) ?? []
-                      const free = inv.lines.reduce((n, l) => n + l.freeQty, 0)
-                      return (
-                        <tr
-                          key={inv.id}
-                          onClick={() => setOpen(inv)}
-                          className="cursor-pointer transition-colors hover:bg-surface-2"
+              {/* ما طلبه العميل حرفياً: «يهمني في فواتير البيع عدد البوكسات، عدد العينات،
+              اسم العميل، تم السداد أو لم يتم — فقط». الرقم والتاريخ صغيران للتمييز بين
+              فاتورتين لنفس المحل في نفس اليوم؛ المبلغ والطباعة داخل الفاتورة عند فتحها. */}
+              <ul className="divide-y divide-border">
+                {slice.map((inv) => {
+                  const rets = returnsByInvoice.get(inv.id) ?? []
+                  const boxes = inv.lines.reduce((n, l) => n + l.qty, 0)
+                  const free = inv.lines.reduce((n, l) => n + l.freeQty, 0)
+                  const refunded = inv.status === 'refunded'
+                  return (
+                    <li
+                      key={inv.id}
+                      onClick={() => setOpen(inv)}
+                      className="flex cursor-pointer items-center gap-3 px-4 py-3 transition-colors hover:bg-surface-2"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p
+                          className={cn(
+                            'font-semibold break-words',
+                            refunded && 'text-faint line-through',
+                          )}
                         >
-                          <td className="tnum px-4 py-2.5 font-medium text-brand-strong">
-                            <span className="flex flex-wrap items-center gap-1.5">
-                              {inv.number}
-                              {inv.status === 'refunded' && <Badge tone="danger">مسترجعة</Badge>}
-                              {rets.length > 0 && <Badge tone="warn">مرتجع جزئي</Badge>}
-                              {free > 0 && <Badge tone="accent">+{free} عينة</Badge>}
-                            </span>
-                          </td>
-                          <td className="tnum px-3 py-2.5 text-muted">{dateTime(inv.createdAt)}</td>
-                          <td className="hidden truncate px-3 py-2.5 sm:table-cell">
-                            {inv.customerName ?? 'بيع نقدي'}
-                          </td>
-                          <td className="hidden px-3 py-2.5 text-muted lg:table-cell">
-                            {userNames.get(inv.userId) ?? '—'}
-                          </td>
-                          <td className="hidden px-3 py-2.5 text-muted sm:table-cell">
-                            {PAYMENT_LABELS[inv.paymentMethod]}
-                          </td>
-                          <td
-                            className={cn(
-                              'tnum px-3 py-2.5 font-semibold',
-                              inv.status === 'refunded' && 'text-faint line-through',
-                            )}
-                          >
-                            {money(inv.total)}
-                          </td>
-                          <td className="px-3 py-2.5 text-left">
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                void printInvoice(inv, settings, rets)
-                              }}
-                              aria-label="طباعة"
-                            >
-                              <Printer className="size-4" />
-                            </Button>
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
+                          {inv.customerName ?? 'بيع نقدي'}
+                        </p>
+                        <p className="tnum mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px]">
+                          <span>
+                            <span className="font-semibold">{num(boxes)}</span>{' '}
+                            <span className="text-muted">بوكس</span>
+                          </span>
+                          <span className={cn(free > 0 ? 'text-accent' : 'text-faint')}>
+                            <span className="font-semibold">{num(free)}</span> عينة
+                          </span>
+                        </p>
+                        <p className="tnum mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-faint">
+                          {inv.number} · {dateTime(inv.createdAt)}
+                          {refunded && <Badge tone="danger">مسترجعة</Badge>}
+                          {rets.length > 0 && <Badge tone="warn">مرتجع جزئي</Badge>}
+                        </p>
+                      </div>
+                      {!refunded && <PaidToggle invoice={inv} editable={can('sales.refund')} />}
+                    </li>
+                  )
+                })}
+              </ul>
               <Pager page={page} pages={pages} onChange={setPage} total={rows.length} />
             </>
           )}
@@ -697,5 +666,64 @@ function ReturnModal({
         )}
       </div>
     </Modal>
+  )
+}
+
+/**
+ * «تم السداد / لم يتم السداد» على سطر الفاتورة. الضغط يبدّلها لمن يملك
+ * `sales.refund` (المالك والمدير)؛ الموظف يراها شارة فقط — والخادم يرفض عنه أيضاً.
+ */
+function PaidToggle({ invoice, editable }: { invoice: Invoice; editable: boolean }) {
+  const { user } = useApp()
+  const toast = useToast()
+  const [busy, setBusy] = useState(false)
+  const paid = invoice.status !== 'unpaid'
+  const label = paid ? 'تم السداد' : 'لم يتم السداد'
+  const tone = paid ? 'border-ok/40 bg-ok-soft text-ok' : 'border-warn/50 bg-warn-soft text-warn'
+
+  if (!editable) {
+    return (
+      <span
+        className={cn('shrink-0 rounded-full border px-3 py-1.5 text-[12px] font-semibold', tone)}
+      >
+        {label}
+      </span>
+    )
+  }
+
+  async function toggle(e: React.MouseEvent) {
+    e.stopPropagation()
+    setBusy(true)
+    try {
+      await setInvoicePaid(invoice, !paid)
+      if (user)
+        await audit(
+          user,
+          paid ? 'إلغاء تسجيل سداد' : 'تسجيل سداد',
+          'invoice',
+          invoice.id,
+          `${invoice.number} — ${invoice.customerName ?? 'بيع نقدي'}`,
+        )
+      toast(paid ? `${invoice.number}: لم يتم السداد` : `${invoice.number}: تم السداد`)
+    } catch (err) {
+      toast(err instanceof Error ? err.message : 'تعذّر تغيير حالة السداد', 'error')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={toggle}
+      disabled={busy}
+      aria-label={`${label} — اضغط للتغيير`}
+      className={cn(
+        'shrink-0 rounded-full border px-3 py-1.5 text-[12px] font-semibold transition-opacity disabled:opacity-50',
+        tone,
+      )}
+    >
+      {label}
+    </button>
   )
 }

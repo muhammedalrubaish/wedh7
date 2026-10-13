@@ -172,6 +172,28 @@ export async function createSale(input: {
   return invoice
 }
 
+/**
+ * «تم السداد» / «لم يتم السداد». على الخادم يحتاج `sales.refund` (المالك والمدير):
+ * تسجيل أن محلاً دفع دَينه قرار مالي لا يملكه الموظف.
+ */
+export async function setInvoicePaid(invoice: Invoice, paid: boolean): Promise<void> {
+  if (invoice.status === 'refunded') throw new Error('الفاتورة مسترجعة — لا تُغيَّر حالة سدادها.')
+  const method: PaymentMethod = paid
+    ? invoice.paymentMethod === 'credit'
+      ? 'transfer'
+      : invoice.paymentMethod
+    : 'credit'
+  if (cloudEnabled) {
+    guardOnline()
+    const { error } = await requireClient().rpc('set_invoice_paid', {
+      p_invoice_id: invoice.id,
+      p_paid: paid,
+    })
+    if (error) fail(error)
+  }
+  await db.invoices.update(invoice.id, { status: paid ? 'paid' : 'unpaid', paymentMethod: method })
+}
+
 /* -------------------------------------------------------------------------- */
 /* المرتجعات والاسترجاع                                                        */
 /* -------------------------------------------------------------------------- */

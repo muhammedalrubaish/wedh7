@@ -26,7 +26,7 @@ import {
   type Tone,
 } from '@/components/ui'
 import { Stat } from '@/components/Stat'
-import { date, money, monthLabel, num, round2 } from '@/lib/format'
+import { date, money, monthLabel, num, parseNum, round2 } from '@/lib/format'
 import { PURCHASE_KINDS, PURCHASE_KIND_LABELS, purchasesSummary } from '@/lib/analytics'
 import {
   audit,
@@ -511,15 +511,6 @@ const todayInput = () => {
 const fromDateInput = (v: string): number => {
   const [y, m, d] = v.split('-').map(Number)
   return new Date(y, m - 1, d, 12).getTime()
-}
-
-/** يقبل الفاصلة العشرية العربية «٢٫٥» والأرقام الهندية — لوحة الجوال العربية تكتبها. */
-const parseNum = (v: string): number => {
-  const ascii = v
-    .replace(/[٠-٩]/g, (c) => String(c.charCodeAt(0) - 0x0660))
-    .replace(/[٫,]/g, '.')
-    .trim()
-  return ascii === '' ? NaN : Number(ascii)
 }
 
 let lineKey = 0

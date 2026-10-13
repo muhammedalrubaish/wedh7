@@ -102,3 +102,16 @@ export function shortDay(ts: number): string {
 export function monthLabel(ts: number): string {
   return new Intl.DateTimeFormat(AR, { month: 'long', year: 'numeric' }).format(new Date(ts))
 }
+
+/**
+ * رقم من خانة كتابة: يقبل الأرقام الهندية «٢٫٥» والفاصلة العربية — لوحة الجوال
+ * العربية تكتبها هكذا، و`Number('٢')` يعطي `NaN` بصمت. الفارغ `NaN` لا صفر، كي
+ * تفرّق الشاشة بين «لم يكتب شيئاً» و«كتب صفراً».
+ */
+export function parseNum(v: string): number {
+  const ascii = v
+    .replace(/[٠-٩]/g, (c) => String(c.charCodeAt(0) - 0x0660))
+    .replace(/[٫,]/g, '.')
+    .trim()
+  return ascii === '' ? NaN : Number(ascii)
+}

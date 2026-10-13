@@ -3,12 +3,8 @@ import { dateTime, money } from './format'
 import { zatcaQrPayload } from './zatca'
 import type { Invoice, ReturnNote, Settings } from './types'
 
-const PAYMENT_LABELS: Record<Invoice['paymentMethod'], string> = {
-  cash: 'نقداً',
-  card: 'شبكة',
-  transfer: 'تحويل',
-  credit: 'آجل',
-}
+/** ما يهمّ المحل على فاتورته: هل دفع أم لا — لا وسيلة الدفع. */
+const paidLabel = (inv: Invoice) => (inv.status === 'unpaid' ? 'لم يتم السداد' : 'تم السداد')
 
 function esc(s: string): string {
   return s.replace(
@@ -131,7 +127,7 @@ ${invoice.customerName ? `<p class="muted">العميل: ${esc(invoice.customerN
   ${invoice.discount > 0 ? `<div><span>الخصم</span><span>- ${esc(money(invoice.discount))}</span></div>` : ''}
   ${taxable ? `<div><span>${vatLabel}</span><span>${esc(money(invoice.vatAmount))}</span></div>` : ''}
   <div class="grand"><span>الإجمالي المستحق</span><span>${esc(money(invoice.total))}</span></div>
-  <div><span>طريقة الدفع</span><span>${PAYMENT_LABELS[invoice.paymentMethod]}</span></div>
+  <div><span>السداد</span><span>${paidLabel(invoice)}</span></div>
 </div>
 ${invoice.notes ? `<p class="muted" style="white-space:pre-wrap;margin-top:6px">ملاحظة: ${esc(invoice.notes)}</p>` : ''}
 ${returnsBlock}

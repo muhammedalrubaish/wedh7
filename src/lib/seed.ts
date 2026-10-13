@@ -300,6 +300,13 @@ export async function seed(): Promise<void> {
       const discount = rand() < 0.1 ? round2(subtotal * 0.05) : 0
       const net = round2(subtotal - discount)
       const vatAmount = round2(net * (DEFAULT_SETTINGS.vatRate / 100))
+      const method: Invoice['paymentMethod'] = wholesale
+        ? rand() < 0.6
+          ? 'transfer'
+          : 'credit'
+        : rand() < 0.7
+          ? 'cash'
+          : 'card'
 
       const invoice: Invoice = {
         id: uid('inv_'),
@@ -313,14 +320,9 @@ export async function seed(): Promise<void> {
         vatRate: DEFAULT_SETTINGS.vatRate,
         vatAmount,
         total: round2(net + vatAmount),
-        paymentMethod: wholesale
-          ? rand() < 0.6
-            ? 'transfer'
-            : 'credit'
-          : rand() < 0.7
-            ? 'cash'
-            : 'card',
-        status: 'paid',
+        paymentMethod: method,
+        // الآجل غير مسدّد حتى يُسجَّل دفعه — نفس قاعدة المشغّل على الخادم.
+        status: method === 'credit' ? 'unpaid' : 'paid',
         userId: pick(staff),
         createdAt: at,
       }

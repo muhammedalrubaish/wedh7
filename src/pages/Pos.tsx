@@ -31,7 +31,7 @@ import { CustomerForm } from '@/components/CustomerForm'
 import { nextNumber } from '@/lib/db'
 import { cloudEnabled } from '@/lib/supabase'
 import { audit, createSale } from '@/lib/repo'
-import { money, num, round2 } from '@/lib/format'
+import { money, num, parseNum, round2 } from '@/lib/format'
 import { printInvoice } from '@/lib/print'
 import { invoiceMessage, waLink } from '@/lib/whatsapp'
 import { useApp } from '@/store/app'
@@ -47,11 +47,19 @@ interface CartLine {
   discount: number
 }
 
-const PAYMENTS: Array<[PaymentMethod, string]> = [
-  ['cash', 'نقداً'],
-  ['card', 'شبكة'],
-  ['transfer', 'تحويل'],
-  ['credit', 'آجل'],
+/**
+ * السداد خياران لا أربع طرق دفع: العميل يتابع «من دفع ومن لم يدفع» لا وسيلة الدفع.
+ * «لم يتم السداد» تُخزَّن `credit` فيجعلها الخادم غير مسدّدة، و«تم السداد» `transfer`.
+ */
+/** عدد صحيح غير سالب من خانة كتابة؛ الفارغ صفر. */
+const wholeCount = (v: string): number => {
+  const n = parseNum(v)
+  return Number.isFinite(n) ? Math.max(0, Math.floor(n)) : 0
+}
+
+const PAID_OPTIONS: Array<[boolean, string]> = [
+  [true, 'تم السداد'],
+  [false, 'لم يتم السداد'],
 ]
 
 export default function Pos() {
@@ -66,7 +74,10 @@ export default function Pos() {
   // الفراغ يعني «بيع نقدي بلا اسم» لا «لم يُختَر بعد».
   const [customerId, setCustomerId] = useState('')
   const [newCustomer, setNewCustomer] = useState(false)
-  const [payment, setPayment] = useState<PaymentMethod>('transfer')
+  // لا اختيار افتراضي: «مسدّد» افتراضياً يُخفي دَيناً حقيقياً بصمت، و«غير مسدّد» يُظهر
+  // دَيناً لا وجود له. ضغطة إلزامية واحدة أرخص من الخطأين.
+  const [paid, setPaid] = useState<boolean | null>(null)
+  const payment: PaymentMethod = paid ? 'transfer' : 'credit'
   const [invoiceDiscount, setInvoiceDiscount] = useState(0)
   const [notes, setNotes] = useState('')
   const [done, setDone] = useState<Invoice | null>(null)
@@ -216,7 +227,7 @@ export default function Pos() {
         vatAmount: totals.vatAmount,
         total: totals.total,
         paymentMethod: payment,
-        status: 'paid',
+        status: paid ? 'paid' : 'unpaid',
         userId: user.id,
         createdAt: Date.now(),
         notes: notes.trim() || undefined,
@@ -248,6 +259,7 @@ export default function Pos() {
       setCart([])
       setInvoiceDiscount(0)
       setNotes('')
+      setPaid(null)
       toast(`تم إصدار الفاتورة ${saved.number}`)
     } catch (err) {
       toast(err instanceof Error ? err.message : 'تعذّر إتمام البيع', 'error')
@@ -401,7 +413,16 @@ export default function Pos() {
                     >
                       <Minus className="size-3.5" />
                     </Button>
-                    <span className="tnum w-7 text-center text-sm font-semibold">{l.qty}</span>
+                    {/* خانة كتابة لا عدّاد فقط: ٥٠ بوكساً لمحل تعني ٥٠ ضغطة على «+». */}
+                    <input
+                      aria-label="عدد البوكسات"
+                      inputMode="numeric"
+                      value={l.qty || ''}
+                      placeholder="0"
+                      onChange={(e) => updateLine(l.part.id, { qty: wholeCount(e.target.value) })}
+                      onFocus={(e) => e.target.select()}
+                      className="tnum h-8 w-12 rounded-lg border border-border bg-surface text-center text-sm font-semibold focus:border-brand focus:outline-none"
+                    />
                     <Button
                       size="icon"
                       variant="secondary"
@@ -428,43 +449,25 @@ export default function Pos() {
                 </div>
                 {/* العينة عدّاد مستقل عن الكمية: «١١ بوكس والفاتورة على ١٠» تعني
                     qty=10 و freeQty=1، والرصيد ينقص ١١. */}
-                <div className="mt-2 flex items-center gap-2 text-[12px]">
-                  <CakeSlice className="size-3.5 text-accent" />
-                  <span className="text-muted">عينة</span>
-                  <div className="flex items-center gap-1">
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="size-6"
-                      aria-label="عينة أقل"
-                      disabled={l.freeQty === 0}
-                      onClick={() => updateLine(l.part.id, { freeQty: l.freeQty - 1 })}
-                    >
-                      <Minus className="size-3" />
-                    </Button>
-                    <span
-                      className={cn(
-                        'tnum w-5 text-center font-semibold',
-                        l.freeQty > 0 && 'text-accent',
-                      )}
-                    >
-                      {l.freeQty}
-                    </span>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="size-6"
-                      aria-label="عينة أكثر"
-                      disabled={outOf(l) >= l.part.qty}
-                      onClick={() => updateLine(l.part.id, { freeQty: l.freeQty + 1 })}
-                    >
-                      <Plus className="size-3" />
-                    </Button>
-                  </div>
+                <label className="mt-2 flex items-center gap-2 text-[13px]">
+                  <CakeSlice className="size-4 text-accent" />
+                  <span className="text-muted">عدد العينات</span>
+                  <input
+                    aria-label="عدد العينات"
+                    inputMode="numeric"
+                    value={l.freeQty || ''}
+                    placeholder="0"
+                    onChange={(e) => updateLine(l.part.id, { freeQty: wholeCount(e.target.value) })}
+                    onFocus={(e) => e.target.select()}
+                    className={cn(
+                      'tnum h-8 w-16 rounded-lg border border-border bg-surface text-center font-semibold focus:border-brand focus:outline-none',
+                      l.freeQty > 0 && 'border-accent/50 text-accent',
+                    )}
+                  />
                   {l.freeQty > 0 && (
                     <span className="tnum mr-auto text-faint">يخرج {outOf(l)} من الرصيد</span>
                   )}
-                </div>
+                </label>
               </li>
             ))}
           </ul>
@@ -514,15 +517,19 @@ export default function Pos() {
             className="text-[13px]"
           />
 
-          <div className="grid grid-cols-4 gap-1">
-            {PAYMENTS.map(([value, label]) => (
+          <div className="grid grid-cols-2 gap-1.5" role="radiogroup" aria-label="السداد">
+            {PAID_OPTIONS.map(([value, label]) => (
               <button
-                key={value}
-                onClick={() => setPayment(value)}
+                key={label}
+                role="radio"
+                aria-checked={paid === value}
+                onClick={() => setPaid(value)}
                 className={cn(
-                  'rounded-lg border px-1 py-1.5 text-[12px] font-medium transition-colors',
-                  payment === value
-                    ? 'border-brand bg-brand-soft text-brand-strong'
+                  'rounded-xl border px-2 py-2.5 text-[13px] font-semibold transition-colors',
+                  paid === value
+                    ? value
+                      ? 'border-ok bg-ok-soft text-ok'
+                      : 'border-warn bg-warn-soft text-warn'
                     : 'border-border text-muted hover:border-border-strong',
                 )}
               >
@@ -530,12 +537,15 @@ export default function Pos() {
               </button>
             ))}
           </div>
+          {paid === null && cart.length > 0 && (
+            <p className="text-center text-[12px] text-muted">اختر حالة السداد لإصدار الفاتورة</p>
+          )}
 
           <Button
             variant="primary"
             size="lg"
             className="w-full"
-            disabled={cart.length === 0}
+            disabled={cart.length === 0 || paid === null}
             loading={busy}
             onClick={checkout}
           >

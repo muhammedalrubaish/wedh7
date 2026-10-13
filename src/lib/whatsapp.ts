@@ -47,6 +47,7 @@ export function invoiceMessage(invoice: Invoice, settings: Settings): string {
     invoice.discount > 0 ? `خصم: ${money(invoice.discount)}` : '',
     invoice.vatAmount > 0 ? `الضريبة: ${money(invoice.vatAmount)}` : '',
     `✅ الإجمالي: ${money(invoice.total)}`,
+    invoice.status === 'unpaid' ? '⏳ لم يتم السداد بعد' : '',
     invoice.notes ? `📝 ${invoice.notes}` : '',
     '',
     settings.phone ? `للاستفسار: ${settings.phone}` : '',

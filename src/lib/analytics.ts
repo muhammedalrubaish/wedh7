@@ -279,7 +279,8 @@ export function byCustomer(
     row.invoices += 1
     row.gross = round2(row.gross + net)
     row.totalWithVat = round2(row.totalWithVat + inv.total)
-    if (inv.paymentMethod === 'credit') row.unpaid = round2(row.unpaid + inv.total)
+    // الحالة لا طريقة الدفع: الآجل الذي سُدّد لاحقاً لم يعد دَيناً.
+    if (inv.status === 'unpaid') row.unpaid = round2(row.unpaid + inv.total)
     for (const l of inv.lines) {
       row.units += l.qty
       row.freeUnits += l.freeQty
