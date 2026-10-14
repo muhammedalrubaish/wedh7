@@ -297,14 +297,21 @@ export default function Pos() {
           <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 xl:grid-cols-4">
             {results.map((p) => {
               const price = priceFor(p, customer)
+              // المنتج الذي في الفاتورة يُرى بلمحة: أخضر بحدّ وكميته — بطلب العميل، كي لا
+              // يُضاف مرتين ظنّاً أنه لم يُضف.
+              const inCart = cart.find((l) => l.part.id === p.id)
               return (
                 <button
                   key={p.id}
                   onClick={() => addPart(p)}
                   disabled={p.qty <= 0}
+                  aria-pressed={Boolean(inCart)}
                   className={cn(
-                    'lift flex flex-col rounded-card border border-border bg-surface p-3 text-right transition-colors',
-                    'hover:border-brand disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-border',
+                    'lift flex flex-col rounded-card border p-3 text-right transition-colors',
+                    'disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-border',
+                    inCart
+                      ? 'border-ok bg-ok-soft ring-2 ring-ok/35'
+                      : 'border-border bg-surface hover:border-brand',
                   )}
                 >
                   <div className="flex items-start justify-between gap-2">
@@ -328,6 +335,12 @@ export default function Pos() {
                     <span className="tnum text-sm font-bold text-brand-strong">{money(price)}</span>
                     <span className="tnum text-[10px] text-faint">{p.sku}</span>
                   </div>
+                  {inCart && (
+                    <span className="tnum mt-2 inline-flex items-center gap-1 self-start rounded-full border border-ok/40 bg-surface px-2 py-0.5 text-[11px] font-bold text-ok">
+                      <Check className="size-3" />
+                      في الفاتورة × {num(inCart.qty)}
+                    </span>
+                  )}
                 </button>
               )
             })}
