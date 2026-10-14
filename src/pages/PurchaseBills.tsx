@@ -126,20 +126,12 @@ export default function PurchaseBills() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          {/* «المصروفات» اسم الصفحة بطلب العميل؛ في الكود والقاعدة بقيت purchase_bills. */}
-          <h1 className="text-xl font-bold tracking-tight">المصروفات</h1>
-          <p className="mt-0.5 text-sm text-muted">
-            كل ما يصرفه المعمل، على بنود رئيسية وتحتها بنودها
-          </p>
-        </div>
-        {editable && (
-          <Button variant="primary" onClick={() => setCreating(true)}>
-            <Plus className="size-4" />
-            مصروف جديد
-          </Button>
-        )}
+      <div>
+        {/* «المصروفات» اسم الصفحة بطلب العميل؛ في الكود والقاعدة بقيت purchase_bills. */}
+        <h1 className="text-xl font-bold tracking-tight">المصروفات</h1>
+        <p className="mt-0.5 text-sm text-muted">
+          كل ما يصرفه المعمل، على بنود رئيسية وتحتها بنودها
+        </p>
       </div>
 
       {cloudEnabled && !purchasesSchemaReady && (
@@ -155,14 +147,23 @@ export default function PurchaseBills() {
         </p>
       )}
 
-      <Tabs
-        value={tab}
-        onChange={setTab}
-        items={[
-          { value: 'bills', label: 'الفواتير' },
-          { value: 'items', label: 'البنود', count: items.length },
-        ]}
-      />
+      {/* «مصروف جديد» بجانب التبويبات بطلب العميل: سطر واحد بدل سطرين، والزر يسارها. */}
+      <div className="flex items-center justify-between gap-2">
+        <Tabs
+          value={tab}
+          onChange={setTab}
+          items={[
+            { value: 'bills', label: 'الفواتير' },
+            { value: 'items', label: 'البنود', count: items.length },
+          ]}
+        />
+        {editable && (
+          <Button variant="primary" className="shrink-0" onClick={() => setCreating(true)}>
+            <Plus className="size-4" />
+            مصروف جديد
+          </Button>
+        )}
+      </div>
 
       {tab === 'bills' ? (
         <>
