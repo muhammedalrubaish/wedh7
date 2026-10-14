@@ -8,7 +8,7 @@
  * الجانبية) — الشكل الذي لا يُقرأ صغيراً ليس شعاراً.
  *
  * أيقونة التبويب والشاشة الرئيسية والقائمة الجانبية صارت من شعار العميل نفسه
- * (`public/brand-mark.png`، انظر `scripts/make-icons.mjs`). هذا الرمز باقٍ لشاشات
+ * (`assets/brand/`، انظر `scripts/make-icons.mjs`). هذا الرمز باقٍ لشاشات
  * الدخول والخطأ فقط.
  */
 export function Logo({ className = 'size-5' }: { className?: string }) {

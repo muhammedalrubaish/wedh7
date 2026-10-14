@@ -1,28 +1,29 @@
 /**
- * توليد أيقونات التطبيق (التبويب، الشاشة الرئيسية، أندرويد) من شعار العميل نفسه.
+ * توليد أيقونات التطبيق (التبويب، الشاشة الرئيسية، أندرويد) وشعارَي الطباعة من شعار
+ * العميل نفسه.
  *
- * المصدر `public/brand-mark.png`: كلمة «وُضح» والجمل بقناع شفافية، وهو نفسه خلفية
- * الصفحات وشاشة التحميل والقائمة الجانبية. الأيقونة تُشتق منه بدل أن تُرسم يدوياً
- * كي يبقى للهوية مصدر واحد — تغيير الشعار يعني استبدال ملف وإعادة هذا الأمر.
+ * المصدر `assets/brand/`: ملف الشعار الذي سلّمه العميل (PDF من صفحتين) مصدَّراً PNG
+ * بخلفية شفافة — `wedh-logo-color.png` (الكلمة عنابية والجمل بيج) و`wedh-logo-solid.png`
+ * (كله عنابي). خارج `public/` عمداً: مصدر للتوليد لا ملف يُنشر.
+ * خلفية الأيقونات بيضاء كما في ملف العميل — الشعار عنابي ولا يُقرأ على العنابي.
  *
  * ولماذا بلا مكتبة: فكّ PNG وترميزه يحتاجان zlib وCRC فقط، وكلاهما في Node نفسه.
- * إضافة `sharp` أو `canvas` تعني اعتمادية ثنائية ثقيلة لأجل خمس صور تُبنى مرة.
+ * إضافة `sharp` أو `canvas` تعني اعتمادية ثنائية ثقيلة لأجل صور تُبنى مرة.
  *
  * التشغيل: node scripts/make-icons.mjs
  */
 import { deflateSync, inflateSync } from 'node:zlib'
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
 
-// عنابي البوكس خلفيةً وبيج الشعار فوقه — نفس رموز `index.css`.
-const BRAND = [0x70, 0x29, 0x28]
-const MARK = [0xd9, 0xaf, 0x97]
+const WHITE = [255, 255, 255]
+const BLACK = [0, 0, 0]
 
 /* -------------------------------------------------------------------------- */
 /* فكّ PNG — رمادي بشفافية (LA) أو RGBA، ٨ بت، بلا تشذير، كما يُصدَّر الشعار     */
 /* -------------------------------------------------------------------------- */
 
-/** قناة الشفافية وحدها بين ٠ و١: الشعار قناع، ولونه يُختار هنا. */
-function readAlpha(path) {
+/** البكسلات RGBA مضروبة بالشفافية (premultiplied)، بين ٠ و١ — جاهزة للتصغير بالمتوسط. */
+function readPng(path) {
   const buf = readFileSync(path)
   let width = 0
   let height = 0
@@ -71,9 +72,17 @@ function readAlpha(path) {
       px[row + x] = out & 0xff
     }
   }
-  const alpha = new Float32Array(width * height)
-  for (let i = 0; i < width * height; i++) alpha[i] = px[i * channels + channels - 1] / 255
-  return { width, height, alpha }
+  const rgba = new Float32Array(width * height * 4)
+  for (let i = 0; i < width * height; i++) {
+    const a = px[i * channels + channels - 1] / 255
+    for (let c = 0; c < 3; c++) {
+      // LA: قناة الرمادي الواحدة تُنسخ للألوان الثلاثة
+      const v = px[i * channels + (channels === 2 ? 0 : c)] / 255
+      rgba[i * 4 + c] = v * a
+    }
+    rgba[i * 4 + 3] = a
+  }
+  return { width, height, rgba }
 }
 
 /* -------------------------------------------------------------------------- */
@@ -126,42 +135,49 @@ function encodePng(width, height, rgba) {
 /* الرسم                                                                       */
 /* -------------------------------------------------------------------------- */
 
-const mark = readAlpha('public/brand-mark.png')
+const color = readPng('assets/brand/wedh-logo-color.png')
+const solid = readPng('assets/brand/wedh-logo-solid.png')
 
-/** متوسط الشفافية في مستطيل من الشعار — تصغير بالمساحة لا بأقرب بكسل، فلا تتكسّر الحواف. */
-function coverage(x0, y0, x1, y1) {
+/**
+ * متوسط مستطيل من الصورة (مضروب بالشفافية) — تصغير بالمساحة لا بأقرب بكسل، فلا
+ * تتكسّر حواف الحروف.
+ */
+function sample(img, x0, y0, x1, y1) {
+  const out = [0, 0, 0, 0]
+  const full = (x1 - x0) * (y1 - y0)
+  if (full <= 0) return out
   const xa = Math.max(0, Math.floor(x0))
   const ya = Math.max(0, Math.floor(y0))
-  const xb = Math.min(mark.width, Math.ceil(x1))
-  const yb = Math.min(mark.height, Math.ceil(y1))
-  let sum = 0
+  const xb = Math.min(img.width, Math.ceil(x1))
+  const yb = Math.min(img.height, Math.ceil(y1))
   for (let y = ya; y < yb; y++) {
     const wy = Math.min(y + 1, y1) - Math.max(y, y0)
     for (let x = xa; x < xb; x++) {
       const w = (Math.min(x + 1, x1) - Math.max(x, x0)) * wy
-      sum += mark.alpha[y * mark.width + x] * w
+      const i = (y * img.width + x) * 4
+      for (let c = 0; c < 4; c++) out[c] += img.rgba[i + c] * w
     }
   }
-  const full = (x1 - x0) * (y1 - y0)
-  return full > 0 ? sum / full : 0
+  return out.map((v) => v / full)
 }
 
 /**
- * الشعار عريض (١٥٤٠×٦٣٤)، فيُوسَّط أفقياً بعرض `width` من ضلع المربع. `rounded`
+ * الشعار عريض، فيُوسَّط أفقياً بعرض `width` من ضلع المربع فوق خلفية بيضاء. `rounded`
  * يقصّ زوايا الخلفية لأيقونة التبويب؛ iOS وأندرويد يقصّانها بأنفسهما.
  */
 function render(size, { width = 0.82, rounded = false } = {}) {
   const rgba = Buffer.alloc(size * size * 4)
   const w = size * width
-  const scale = mark.width / w // بكسلات الشعار لكل بكسل أيقونة
-  const h = mark.height / scale
+  const scale = color.width / w // بكسلات الشعار لكل بكسل أيقونة
+  const h = color.height / scale
   const ox = (size - w) / 2
   const oy = (size - h) / 2
   const r = size * 0.22
 
   for (let y = 0; y < size; y++) {
     for (let x = 0; x < size; x++) {
-      const f = coverage(
+      const [pr, pg, pb, pa] = sample(
+        color,
         (x - ox) * scale,
         (y - oy) * scale,
         (x + 1 - ox) * scale,
@@ -175,7 +191,10 @@ function render(size, { width = 0.82, rounded = false } = {}) {
         a = Math.min(1, Math.max(0, r - Math.hypot(dx, dy) + 0.5))
       }
       const i = (y * size + x) * 4
-      for (let c = 0; c < 3; c++) rgba[i + c] = Math.round(BRAND[c] * (1 - f) + MARK[c] * f)
+      // الشعار فوق الأبيض: اللون المضروب بالشفافية + الأبيض بما بقي منها
+      ;[pr, pg, pb].forEach(
+        (v, c) => (rgba[i + c] = Math.round(255 * (v + (WHITE[c] / 255) * (1 - pa)))),
+      )
       rgba[i + 3] = Math.round(255 * a)
     }
   }
@@ -183,22 +202,20 @@ function render(size, { width = 0.82, rounded = false } = {}) {
 }
 
 /**
- * الشعار نفسه بلون صريح على شفافية — للطباعة. القناع الأصلي أبيض، والطابعة لا تطبع
- * لون خلفية القناع إلا إن فعّل المستخدم «طباعة الخلفيات»؛ الصورة تُطبع دائماً.
+ * الشعار على شفافية للطباعة. بلا `tint` يبقى بألوانه؛ مع `tint` يصير لوناً واحداً
+ * (الأسود للطابعة الحرارية) بشفافية الأصل.
  */
-function renderMark(width, color) {
-  const scale = mark.width / width
-  const height = Math.round(mark.height / scale)
+function renderLogo(img, width, tint) {
+  const scale = img.width / width
+  const height = Math.round(img.height / scale)
   const rgba = Buffer.alloc(width * height * 4)
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
+      const [pr, pg, pb, pa] = sample(img, x * scale, y * scale, (x + 1) * scale, (y + 1) * scale)
       const i = (y * width + x) * 4
-      rgba[i] = color[0]
-      rgba[i + 1] = color[1]
-      rgba[i + 2] = color[2]
-      rgba[i + 3] = Math.round(
-        255 * coverage(x * scale, y * scale, (x + 1) * scale, (y + 1) * scale),
-      )
+      const rgb = tint ?? [pr, pg, pb].map((v) => (pa > 0 ? (255 * v) / pa : 0))
+      for (let c = 0; c < 3; c++) rgba[i + c] = Math.round(rgb[c])
+      rgba[i + 3] = Math.round(255 * pa)
     }
   }
   return encodePng(width, height, rgba)
@@ -215,10 +232,11 @@ const outputs = [
   ['public/icon-512.png', render(512)],
   // أندرويد يقصّ الأطراف بأشكال مختلفة (دائرة، مربع مستدير)؛ المضمون هو الوسط.
   ['public/icon-maskable-512.png', render(512, { width: 0.66 })],
-  // الطابعة الحرارية أحادية اللون: العنابي يخرج رمادياً منقّطاً، والأسود يخرج حادّاً.
-  ['public/brand-print-black.png', renderMark(480, [0, 0, 0])],
-  // التقرير A4 على طابعة ملوّنة غالباً — بلون الهوية.
-  ['public/brand-print-color.png', renderMark(480, BRAND)],
+  // الفاتورة: النسخة العنابية كاملةً بالأسود — على الطابعة الحرارية أحادية اللون يخرج
+  // العنابي رمادياً منقّطاً، وجمل النسخة الملوّنة البيج يكاد يختفي.
+  ['public/brand-print-black.png', renderLogo(solid, 480, BLACK)],
+  // التقرير A4 على طابعة ملوّنة غالباً — الشعار بألوانه كما سلّمه العميل.
+  ['public/brand-print-color.png', renderLogo(color, 480)],
 ]
 
 for (const [path, buf] of outputs) {
