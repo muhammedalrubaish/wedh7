@@ -410,7 +410,9 @@ export default function Pos() {
                     <Trash2 className="size-4" />
                   </button>
                 </div>
-                <div className="mt-2 flex items-center justify-between gap-2">
+                {/* شبكة بصفّين كي تقع خانة العينات تحت خانة العدد تماماً وبعرضها: العينة
+                    عدد بوكسات مثل الكمية، فمكانها تحتها يُقرأ «٤ بوكس + ١ عينة» بلمحة. */}
+                <div className="mt-2 grid grid-cols-[auto_auto_1fr] items-center gap-x-2 gap-y-1.5">
                   <div className="flex items-center gap-1">
                     <Button
                       size="icon"
@@ -458,28 +460,39 @@ export default function Pos() {
                   <span className="tnum w-20 text-left text-[13px] font-semibold">
                     {money(l.unitPrice * l.qty - l.discount)}
                   </span>
-                </div>
-                {/* العينة عدّاد مستقل عن الكمية: «١١ بوكس والفاتورة على ١٠» تعني
-                    qty=10 و freeQty=1، والرصيد ينقص ١١. */}
-                <label className="mt-2 flex items-center gap-2 text-[13px]">
-                  <CakeSlice className="size-4 text-accent" />
-                  <span className="text-muted">عدد العينات</span>
-                  <input
-                    aria-label="عدد العينات"
-                    inputMode="numeric"
-                    value={l.freeQty || ''}
-                    placeholder="0"
-                    onChange={(e) => updateLine(l.part.id, { freeQty: wholeCount(e.target.value) })}
-                    onFocus={(e) => e.target.select()}
-                    className={cn(
-                      'tnum h-8 w-16 rounded-lg border border-border bg-surface text-center font-semibold focus:border-brand focus:outline-none',
-                      l.freeQty > 0 && 'border-accent/50 text-accent',
+                  {/* العينة عدّاد مستقل عن الكمية: «١١ بوكس والفاتورة على ١٠» تعني
+                      qty=10 و freeQty=1، والرصيد ينقص ١١. */}
+                  <div className="flex items-center gap-1">
+                    <span className="grid size-7 place-items-center" aria-hidden="true">
+                      <CakeSlice className="size-4 text-accent" />
+                    </span>
+                    <input
+                      id={`free-${l.part.id}`}
+                      aria-label="عدد العينات"
+                      inputMode="numeric"
+                      value={l.freeQty || ''}
+                      placeholder="0"
+                      onChange={(e) =>
+                        updateLine(l.part.id, { freeQty: wholeCount(e.target.value) })
+                      }
+                      onFocus={(e) => e.target.select()}
+                      className={cn(
+                        'tnum h-8 w-12 rounded-lg border border-border bg-surface text-center text-sm font-semibold focus:border-brand focus:outline-none',
+                        l.freeQty > 0 && 'border-accent/50 text-accent',
+                      )}
+                    />
+                    <span className="size-7" aria-hidden="true" />
+                  </div>
+                  <label
+                    htmlFor={`free-${l.part.id}`}
+                    className="tnum col-span-2 text-[12px] text-muted"
+                  >
+                    عدد العينات
+                    {l.freeQty > 0 && (
+                      <span className="text-faint"> · يخرج {outOf(l)} من الرصيد</span>
                     )}
-                  />
-                  {l.freeQty > 0 && (
-                    <span className="tnum mr-auto text-faint">يخرج {outOf(l)} من الرصيد</span>
-                  )}
-                </label>
+                  </label>
+                </div>
               </li>
             ))}
           </ul>
