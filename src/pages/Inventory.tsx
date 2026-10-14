@@ -159,18 +159,22 @@ export default function Inventory() {
       </div>
 
       <Card className="p-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="relative min-w-52 flex-1">
+        {/* صف واحد حتى على الجوال (طلب العميل): البحث يأخذ ما يبقى من العرض بعد
+        التصفية والفلاتر، فنصّه التوضيحي قصير والكامل في aria-label. */}
+        <div className="flex items-center gap-2">
+          <div className="relative min-w-0 flex-1">
             <Search className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-faint" />
             <Input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="ابحث بالاسم أو الرمز أو الباركود…"
+              placeholder="ابحث…"
+              aria-label="ابحث بالاسم أو الرمز أو الباركود"
+              title="ابحث بالاسم أو الرمز أو الباركود"
               className="pr-9"
             />
           </div>
 
-          <div className="flex items-center gap-1 rounded-xl border border-border bg-surface-2 p-1">
+          <div className="flex shrink-0 items-center gap-0.5 rounded-xl border border-border bg-surface-2 p-1">
             {(
               [
                 ['all', 'الكل'],
@@ -182,7 +186,7 @@ export default function Inventory() {
                 key={value}
                 onClick={() => setStockFilter(value)}
                 className={cn(
-                  'rounded-lg px-3 py-1.5 text-[13px] font-medium transition-all',
+                  'whitespace-nowrap rounded-lg px-2 py-1.5 text-[12px] font-medium transition-all sm:px-3 sm:text-[13px]',
                   stockFilter === value
                     ? 'bg-surface text-text shadow-sm'
                     : 'text-muted hover:text-text',
@@ -196,6 +200,7 @@ export default function Inventory() {
           <Button
             variant="secondary"
             size="icon"
+            className="shrink-0"
             onClick={() => setShowFilters((v) => !v)}
             aria-label="فلاتر"
           >
