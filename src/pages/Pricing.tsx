@@ -149,18 +149,27 @@ export default function Pricing() {
       </div>
 
       <Card className="p-3">
-        <div className="flex flex-wrap gap-2">
-          <div className="relative min-w-52 flex-1">
+        <div className="flex items-center gap-2">
+          <div className="relative min-w-0 flex-1">
             <Search className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-faint" />
             <Input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="ابحث عن منتج…"
+              placeholder="ابحث…"
+              aria-label="ابحث عن منتج"
+              title="ابحث عن منتج"
               className="pr-9"
             />
           </div>
-          <Select value={category} onChange={(e) => setCategory(e.target.value)} className="w-44">
-            <option value="all">كل التصنيفات</option>
+          {/* صف واحد على الجوال: سهم القائمة الأصلي يحجز مساحته بنفسه فلا حشوة يسرى
+              إضافية، و«الكل» تكفي لأن القائمة نفسها قائمة تصنيفات. */}
+          <Select
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+            aria-label="التصنيف"
+            className="w-[6.5rem] shrink-0 pr-2.5 pl-1.5 sm:w-44 sm:pr-3 sm:pl-8"
+          >
+            <option value="all">الكل</option>
             {categories.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.name}
@@ -170,8 +179,14 @@ export default function Pricing() {
           <Button
             variant={onlyWeak ? 'primary' : 'secondary'}
             onClick={() => setOnlyWeak((v) => !v)}
+            aria-pressed={onlyWeak}
+            aria-label="الهامش الضعيف فقط"
+            title="الهامش الضعيف فقط"
+            className="shrink-0 px-3"
           >
-            الهامش الضعيف فقط
+            <TrendingDown className="size-4" />
+            <span className="sm:hidden">ضعيف</span>
+            <span className="hidden sm:inline">الهامش الضعيف فقط</span>
           </Button>
         </div>
       </Card>
