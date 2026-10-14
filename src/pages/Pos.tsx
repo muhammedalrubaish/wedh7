@@ -55,6 +55,9 @@ const wholeCount = (v: string): number => {
   return Number.isFinite(n) ? Math.max(0, Math.floor(n)) : 0
 }
 
+/** ما يجوز بيعه: «بدون حد» يُصنع حسب الطلب فلا سقف له ولو رصيده صفر. */
+const available = (p: Part): number => (p.unlimited ? Infinity : p.qty)
+
 const PAID_OPTIONS: Array<[boolean, string]> = [
   [true, 'تم السداد'],
   [false, 'لم يتم السداد'],
@@ -111,14 +114,14 @@ export default function Pos() {
   const outOf = (l: CartLine) => l.qty + l.freeQty
 
   function addPart(part: Part) {
-    if (part.qty <= 0) {
+    if (available(part) <= 0) {
       toast('هذا المنتج نفد من المخزون', 'warn')
       return
     }
     setCart((cur) => {
       const existing = cur.find((l) => l.part.id === part.id)
       if (existing) {
-        if (outOf(existing) >= part.qty) {
+        if (outOf(existing) >= available(part)) {
           toast(`الرصيد المتاح ${part.qty} فقط`, 'warn')
           return cur
         }
@@ -149,7 +152,7 @@ export default function Pos() {
         if (l.part.id !== id) return l
         const next = { ...l, ...patch }
         // العينات تُخصم من نفس الرصيد: ١٠ محاسَبة + ١ عينة = ١١ بوكساً يخرج من الرفّ.
-        if (outOf(next) > l.part.qty) {
+        if (outOf(next) > available(l.part)) {
           toast(`الرصيد المتاح ${l.part.qty} فقط (محاسَب + عينات)`, 'warn')
           return l
         }
@@ -304,7 +307,7 @@ export default function Pos() {
                 <button
                   key={p.id}
                   onClick={() => addPart(p)}
-                  disabled={p.qty <= 0}
+                  disabled={available(p) <= 0}
                   aria-pressed={Boolean(inCart)}
                   className={cn(
                     'lift flex flex-col rounded-card border p-3 text-right transition-colors',
@@ -321,14 +324,17 @@ export default function Pos() {
                     <span
                       className={cn(
                         'tnum shrink-0 rounded-lg px-1.5 py-0.5 text-[11px] font-bold',
-                        p.qty === 0
-                          ? 'bg-danger-soft text-danger'
-                          : p.qty <= p.reorderPoint
-                            ? 'bg-warn-soft text-warn'
-                            : 'bg-ok-soft text-ok',
+                        p.unlimited
+                          ? 'bg-ok-soft text-ok'
+                          : p.qty === 0
+                            ? 'bg-danger-soft text-danger'
+                            : p.qty <= p.reorderPoint
+                              ? 'bg-warn-soft text-warn'
+                              : 'bg-ok-soft text-ok',
                       )}
+                      title={p.unlimited ? 'بدون حد — يُصنع حسب الطلب' : undefined}
                     >
-                      {p.qty}
+                      {p.unlimited ? '∞' : p.qty}
                     </span>
                   </div>
                   <div className="mt-2 flex items-end justify-between gap-1">
@@ -442,7 +448,7 @@ export default function Pos() {
                       variant="secondary"
                       className="size-7"
                       aria-label="أكثر"
-                      disabled={outOf(l) >= l.part.qty}
+                      disabled={outOf(l) >= available(l.part)}
                       onClick={() => updateLine(l.part.id, { qty: l.qty + 1 })}
                     >
                       <Plus className="size-3.5" />

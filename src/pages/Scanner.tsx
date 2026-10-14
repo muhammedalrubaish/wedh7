@@ -185,17 +185,21 @@ export default function Scanner() {
             <div className="mt-4 grid grid-cols-2 gap-3">
               <div className="rounded-xl bg-surface-2 p-3">
                 <p className="text-[12px] text-muted">الرصيد</p>
-                <p className="tnum mt-0.5 text-xl font-bold">{hit.part.qty}</p>
+                <p className="tnum mt-0.5 text-xl font-bold">
+                  {hit.part.unlimited ? '∞' : hit.part.qty}
+                </p>
                 <div className="mt-2">
                   <Meter
-                    value={hit.part.qty}
-                    max={Math.max(hit.part.reorderPoint * 3, 1)}
+                    value={hit.part.unlimited ? 1 : hit.part.qty}
+                    max={hit.part.unlimited ? 1 : Math.max(hit.part.reorderPoint * 3, 1)}
                     tone={
-                      hit.part.qty === 0
-                        ? 'danger'
-                        : hit.part.qty <= hit.part.reorderPoint
-                          ? 'warn'
-                          : 'ok'
+                      hit.part.unlimited
+                        ? 'ok'
+                        : hit.part.qty === 0
+                          ? 'danger'
+                          : hit.part.qty <= hit.part.reorderPoint
+                            ? 'warn'
+                            : 'ok'
                     }
                   />
                 </div>

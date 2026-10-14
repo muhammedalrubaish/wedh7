@@ -37,7 +37,7 @@ import {
   usePurchaseOrders,
   useSuppliers,
 } from '@/hooks/useShopData'
-import { reorderSuggestions } from '@/lib/analytics'
+import { countedQty, reorderSuggestions } from '@/lib/analytics'
 import { useApp } from '@/store/app'
 import type { Part, Supplier } from '@/lib/types'
 
@@ -83,7 +83,7 @@ export default function Inventory() {
     const q = debounced.trim().toLowerCase()
     let out = parts.filter((p) => {
       if (category !== 'all' && p.categoryId !== category) return false
-      if (stockFilter === 'out' && p.qty > 0) return false
+      if (stockFilter === 'out' && (p.qty > 0 || p.unlimited)) return false
       if (stockFilter === 'reorder' && !reorderIds.has(p.id)) return false
       if (stockFilter === 'healthy' && reorderIds.has(p.id)) return false
       if (!q) return true
@@ -100,11 +100,11 @@ export default function Inventory() {
         case 'priceAsc':
           return a.priceRetail - b.priceRetail || byName()
         case 'qty':
-          return a.qty - b.qty || byName()
+          return sortQty(a) - sortQty(b) || byName()
         case 'qtyDesc':
-          return b.qty - a.qty || byName()
+          return sortQty(b) - sortQty(a) || byName()
         case 'value':
-          return b.qty * b.cost - a.qty * a.cost
+          return countedQty(b) * b.cost - countedQty(a) * a.cost
         case 'margin':
           return marginPercent(a.priceRetail, a.cost) - marginPercent(b.priceRetail, b.cost)
         case 'newest':
@@ -120,8 +120,8 @@ export default function Inventory() {
 
   const totals = useMemo(
     () => ({
-      cost: rows.reduce((n, p) => n + p.qty * p.cost, 0),
-      units: rows.reduce((n, p) => n + p.qty, 0),
+      cost: rows.reduce((n, p) => n + countedQty(p) * p.cost, 0),
+      units: rows.reduce((n, p) => n + countedQty(p), 0),
     }),
     [rows],
   )
@@ -353,17 +353,20 @@ export default function Inventory() {
                             <span
                               className={cn(
                                 'tnum w-8 font-semibold',
-                                p.qty === 0 ? 'text-danger' : needs ? 'text-warn' : 'text-text',
+                                p.unlimited
+                                  ? 'text-ok'
+                                  : p.qty === 0
+                                    ? 'text-danger'
+                                    : needs
+                                      ? 'text-warn'
+                                      : 'text-text',
                               )}
+                              title={p.unlimited ? 'بدون حد — يُصنع حسب الطلب' : undefined}
                             >
-                              {p.qty}
+                              {p.unlimited ? '∞' : p.qty}
                             </span>
                             <div className="flex-1">
-                              <Meter
-                                value={p.qty}
-                                max={Math.max(p.reorderPoint * 3, 1)}
-                                tone={p.qty === 0 ? 'danger' : needs ? 'warn' : 'ok'}
-                              />
+                              <StockMeter part={p} needs={needs} />
                             </div>
                           </div>
                         </td>
@@ -418,10 +421,17 @@ export default function Inventory() {
                         <span
                           className={cn(
                             'tnum shrink-0 text-sm font-bold',
-                            p.qty === 0 ? 'text-danger' : needs ? 'text-warn' : 'text-ok',
+                            p.unlimited
+                              ? 'text-ok'
+                              : p.qty === 0
+                                ? 'text-danger'
+                                : needs
+                                  ? 'text-warn'
+                                  : 'text-ok',
                           )}
+                          title={p.unlimited ? 'بدون حد — يُصنع حسب الطلب' : undefined}
                         >
-                          {p.qty}
+                          {p.unlimited ? '∞' : p.qty}
                         </span>
                       </div>
                       <div className="tnum mt-1 flex flex-wrap items-center gap-x-2 text-[11px] text-faint">
@@ -436,11 +446,7 @@ export default function Inventory() {
                         )}
                       </div>
                       <div className="mt-2">
-                        <Meter
-                          value={p.qty}
-                          max={Math.max(p.reorderPoint * 3, 1)}
-                          tone={p.qty === 0 ? 'danger' : needs ? 'warn' : 'ok'}
-                        />
+                        <StockMeter part={p} needs={needs} />
                       </div>
                     </Link>
                   </li>
@@ -471,6 +477,18 @@ export default function Inventory() {
  * كل حقل له مفتاح تفعيل مستقلّ، ولا يُرسل إلا ما فُعِّل. البديل — إرسال كل
  * الحقول — يعني أن فتح النافذة لتغيير المكان يمسح المورّد من كل الأصناف بصمت.
  */
+/** الترتيب بالرصيد: «بدون حد» آخر القائمة تصاعدياً لا أولها — رصيده صفر ولا ينفد. */
+const sortQty = (p: Part) => (p.unlimited ? Number.MAX_SAFE_INTEGER : p.qty)
+
+/** شريط «بدون حد» ممتلئ دائماً: لا ينفد فلا يُقرأ ناقصاً بلمحة. */
+function StockMeter({ part, needs }: { part: Part; needs: boolean }) {
+  const max = Math.max(part.reorderPoint * 3, 1)
+  if (part.unlimited) return <Meter value={max} max={max} tone="ok" />
+  return (
+    <Meter value={part.qty} max={max} tone={part.qty === 0 ? 'danger' : needs ? 'warn' : 'ok'} />
+  )
+}
+
 function BulkEditModal({
   open,
   onClose,

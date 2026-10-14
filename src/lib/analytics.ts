@@ -317,6 +317,12 @@ export function velocity(movements: StockMovement[], partId: string, days: numbe
   return sold / days
 }
 
+/**
+ * الرصيد الذي يُحسب في القيمة والركود. منتج «بدون حد» يُصنع حسب الطلب فرصيده لا
+ * يتحرّك، وما بقي فيه من قبل التحويل رقمٌ متجمّد لا بضاعة على الرف.
+ */
+export const countedQty = (p: Part): number => (p.unlimited ? 0 : p.qty)
+
 export function reorderSuggestions(
   parts: Part[],
   movements: StockMovement[],
@@ -346,7 +352,7 @@ export function reorderSuggestions(
     if (part.archived) continue
     // حدّ صفر = «بدون حد» (خيار في نموذج المنتج): بوكس يُصنع حسب الطلب لا يُنبَّه
     // عليه حتى لو نفد. كل تنبيهات النقص تمرّ من هنا — اللوحة والشارة والتوريد والمحاسب.
-    if (part.reorderPoint <= 0) continue
+    if (part.reorderPoint <= 0 || part.unlimited) continue
     const pending = onOrder.get(part.id) ?? 0
     const effectiveQty = part.qty + pending
     if (effectiveQty > part.reorderPoint) continue
@@ -394,7 +400,7 @@ export function deadStock(parts: Part[], movements: StockMovement[], days = 21):
   }
   const cutoff = Date.now() - days * 86_400_000
   return parts
-    .filter((p) => !p.archived && p.qty > 0 && (lastSale.get(p.id) ?? 0) < cutoff)
+    .filter((p) => !p.archived && countedQty(p) > 0 && (lastSale.get(p.id) ?? 0) < cutoff)
     .map((p) => ({ part: p, lastSoldAt: lastSale.get(p.id), tiedCapital: round2(p.qty * p.cost) }))
     .sort((a, b) => b.tiedCapital - a.tiedCapital)
 }
@@ -405,9 +411,10 @@ export function inventoryValue(parts: Part[]): { cost: number; retail: number; u
   let units = 0
   for (const p of parts) {
     if (p.archived) continue
-    cost += p.qty * p.cost
-    retail += p.qty * p.priceRetail
-    units += p.qty
+    const q = countedQty(p)
+    cost += q * p.cost
+    retail += q * p.priceRetail
+    units += q
   }
   return { cost: round2(cost), retail: round2(retail), units }
 }

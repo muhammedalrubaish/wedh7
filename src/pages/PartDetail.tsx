@@ -32,7 +32,7 @@ import { PartForm } from '@/components/PartForm'
 import { db } from '@/lib/db'
 import { applyMovement, audit, deletePart } from '@/lib/repo'
 import { marginPercent, money, num, relative } from '@/lib/format'
-import { velocity } from '@/lib/analytics'
+import { countedQty, velocity } from '@/lib/analytics'
 import { useApp } from '@/store/app'
 import { useCategories, useSuppliers } from '@/hooks/useShopData'
 import type { MovementType } from '@/lib/types'
@@ -108,7 +108,7 @@ export default function PartDetail() {
   const supplier = suppliers.find((s) => s.id === part.supplierId)
   const margin = marginPercent(part.priceRetail, part.cost)
   const showCost = can('pricing.view')
-  const daysOfCover = v30 > 0 ? part.qty / v30 : Infinity
+  const daysOfCover = part.unlimited ? Infinity : v30 > 0 ? part.qty / v30 : Infinity
 
   return (
     <div className="space-y-4">
@@ -157,10 +157,18 @@ export default function PartDetail() {
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat
           label="الرصيد الحالي"
-          value={num(part.qty)}
+          value={part.unlimited ? '∞' : num(part.qty)}
           icon={<Boxes className="size-5" />}
-          tone={part.qty === 0 ? 'danger' : part.qty <= part.reorderPoint ? 'warn' : 'ok'}
-          sub={`حدّ التنبيه ${part.reorderPoint}`}
+          tone={
+            part.unlimited
+              ? 'ok'
+              : part.qty === 0
+                ? 'danger'
+                : part.qty <= part.reorderPoint
+                  ? 'warn'
+                  : 'ok'
+          }
+          sub={part.unlimited ? 'بدون حد — يُصنع حسب الطلب' : `حدّ التنبيه ${part.reorderPoint}`}
         />
         <Stat
           label="معدل البيع"
@@ -168,15 +176,17 @@ export default function PartDetail() {
           icon={<TrendingUp className="size-5" />}
           tone="brand"
           sub={
-            Number.isFinite(daysOfCover)
-              ? `يكفي ${Math.floor(daysOfCover)} يوم`
-              : 'لا حركة خلال ٣٠ يوم'
+            part.unlimited
+              ? 'يُصنع حسب الطلب'
+              : Number.isFinite(daysOfCover)
+                ? `يكفي ${Math.floor(daysOfCover)} يوم`
+                : 'لا حركة خلال ٣٠ يوم'
           }
         />
         {showCost ? (
           <Stat
             label="قيمة المخزون"
-            value={money(part.qty * part.cost, { compact: true })}
+            value={money(countedQty(part) * part.cost, { compact: true })}
             icon={<Coins className="size-5" />}
             tone="accent"
             sub={`التكلفة ${money(part.cost)}`}
@@ -330,6 +340,7 @@ export default function PartDetail() {
           toast('تم تسجيل الحركة')
         }}
         currentQty={part.qty}
+        unlimited={Boolean(part.unlimited)}
         currentCost={part.cost}
         showCost={showCost}
       />
@@ -348,6 +359,7 @@ function AdjustModal({
   onClose,
   onSubmit,
   currentQty,
+  unlimited,
   currentCost,
   showCost,
 }: {
@@ -355,6 +367,8 @@ function AdjustModal({
   onClose: () => void
   onSubmit: (qty: number, type: MovementType, note: string, unitCost?: number) => Promise<void>
   currentQty: number
+  /** «بدون حد»: الخادم لا يحرّك الرصيد، فلا «بعد الحركة» ولا منع للخصم. */
+  unlimited: boolean
   currentCost: number
   showCost: boolean
 }) {
@@ -367,7 +381,7 @@ function AdjustModal({
 
   const signed = direction === 'in' ? Math.abs(qty) : -Math.abs(qty)
   const after = currentQty + signed
-  const invalid = after < 0 || qty <= 0 || !note.trim()
+  const invalid = (!unlimited && after < 0) || qty <= 0 || !note.trim()
 
   return (
     <Modal
@@ -375,7 +389,9 @@ function AdjustModal({
       onClose={onClose}
       size="sm"
       title="إنتاج / تسوية"
-      subtitle={`الرصيد الحالي ${currentQty}`}
+      subtitle={
+        unlimited ? 'بدون حد — تُسجَّل الحركة ولا يتغيّر الرصيد' : `الرصيد الحالي ${currentQty}`
+      }
       footer={
         <>
           <Button variant="ghost" onClick={onClose}>
@@ -477,15 +493,17 @@ function AdjustModal({
           <Textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} />
         </Field>
 
-        <p
-          className={cn(
-            'tnum rounded-xl px-3 py-2 text-sm',
-            after < 0 ? 'bg-danger-soft text-danger' : 'bg-surface-2 text-muted',
-          )}
-        >
-          الرصيد بعد الحركة: <span className="font-bold">{after}</span>
-          {after < 0 && ' — لا يمكن أن يكون بالسالب'}
-        </p>
+        {!unlimited && (
+          <p
+            className={cn(
+              'tnum rounded-xl px-3 py-2 text-sm',
+              after < 0 ? 'bg-danger-soft text-danger' : 'bg-surface-2 text-muted',
+            )}
+          >
+            الرصيد بعد الحركة: <span className="font-bold">{after}</span>
+            {after < 0 && ' — لا يمكن أن يكون بالسالب'}
+          </p>
+        )}
       </div>
     </Modal>
   )

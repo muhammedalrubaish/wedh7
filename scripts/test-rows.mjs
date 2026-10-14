@@ -63,6 +63,7 @@ const writers = [
       reorderPoint: 1,
       reorderQty: 0,
       leadTimeDays: 3,
+      unlimited: true,
       archived: false,
       createdAt: 1,
       updatedAt: 2,
@@ -152,6 +153,7 @@ const readers = [
       'archived',
       'created_at',
       'updated_at',
+      'unlimited',
     ],
   ],
   [

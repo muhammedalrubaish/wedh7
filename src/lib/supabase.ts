@@ -133,6 +133,12 @@ export function humanError(err: unknown): string {
   if (isMissingSchema(err)) {
     return 'قاعدة البيانات تحتاج تحديثاً: شغّل آخر ترحيل من مجلد supabase/migrations في SQL Editor.'
   }
+  // عمود تعرفه الواجهة ولا يعرفه الخادم بعد (PGRST204 من PostgREST، 42703 من Postgres).
+  if (code === 'PGRST204' || code === '42703') {
+    return /unlimited/.test(msg)
+      ? 'قاعدة البيانات تحتاج تحديثاً لتقبل «بدون حد»: شغّل الترحيل 20261017000000_unlimited_stock.sql في SQL Editor.'
+      : 'قاعدة البيانات تحتاج تحديثاً: شغّل آخر ترحيل من مجلد supabase/migrations في SQL Editor.'
+  }
   // القيد القديم على الأنواع الأربعة: الواجهة سبقت ترحيل البنود الرئيسية الحرّة.
   if (code === '23514' && /purchase_items_kind_check/.test(msg)) {
     return 'قاعدة البيانات تحتاج تحديثاً لتقبل بنوداً رئيسية جديدة: شغّل الترحيل 20261016000000_expense_groups.sql في SQL Editor.'

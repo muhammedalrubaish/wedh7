@@ -209,6 +209,7 @@ export function toPart(r: Row): Part {
     priceRetail: n(r.price_retail),
     priceWholesale: n(r.price_wholesale),
     qty: n(r.qty),
+    ...(r.unlimited != null ? { unlimited: b(r.unlimited) } : {}),
     reorderPoint: n(r.reorder_point),
     reorderQty: n(r.reorder_qty),
     leadTimeDays: n(r.lead_time_days),
@@ -242,6 +243,8 @@ export function fromPart(p: Part): Row {
     barcode: p.barcode ?? null,
     notes: p.notes ?? null,
     archived: p.archived,
+    // يُرسَل حين يُضبط فقط: قاعدة بلا ترحيل `unlimited` ترفض العمود المجهول فيفشل كل حفظ.
+    ...(p.unlimited !== undefined ? { unlimited: p.unlimited } : {}),
     updated_at: new Date().toISOString(),
   }
 }

@@ -173,23 +173,31 @@ export async function applyMovement(input: {
   await db.transaction('rw', db.parts, db.movements, async () => {
     const part = await db.parts.get(input.partId)
     if (!part) throw new Error('المنتج غير موجود')
-    if (part.qty + input.qty < 0) {
-      throw new Error(`الرصيد غير كافٍ: المتاح ${part.qty} والمطلوب ${Math.abs(input.qty)}`)
-    }
 
-    let cost = part.cost
-    // المتوسط المرجّح: الحركات الواردة بتكلفة معلومة وحدها تحرّك الرقم.
-    if (input.qty > 0 && input.unitCost !== undefined) {
-      const totalValue = part.qty * part.cost + input.qty * input.unitCost
-      const totalQty = part.qty + input.qty
-      cost = totalQty > 0 ? totalValue / totalQty : input.unitCost
-    }
+    if (part.unlimited) {
+      // يُصنع حسب الطلب: لا رصيد يُعدّ فلا فحص ولا متوسط مرجّح — كما في `record_movement`.
+      // الحركة تُسجَّل أدناه رغم ذلك، فالتقارير ومعدّل البيع يبقيان صحيحَين.
+      const cost = input.qty > 0 && input.unitCost !== undefined ? input.unitCost : part.cost
+      await db.parts.update(input.partId, { cost, updatedAt: Date.now() })
+    } else {
+      if (part.qty + input.qty < 0) {
+        throw new Error(`الرصيد غير كافٍ: المتاح ${part.qty} والمطلوب ${Math.abs(input.qty)}`)
+      }
 
-    await db.parts.update(input.partId, {
-      qty: part.qty + input.qty,
-      cost: Math.round(cost * 100) / 100,
-      updatedAt: Date.now(),
-    })
+      let cost = part.cost
+      // المتوسط المرجّح: الحركات الواردة بتكلفة معلومة وحدها تحرّك الرقم.
+      if (input.qty > 0 && input.unitCost !== undefined) {
+        const totalValue = part.qty * part.cost + input.qty * input.unitCost
+        const totalQty = part.qty + input.qty
+        cost = totalQty > 0 ? totalValue / totalQty : input.unitCost
+      }
+
+      await db.parts.update(input.partId, {
+        qty: part.qty + input.qty,
+        cost: Math.round(cost * 100) / 100,
+        updatedAt: Date.now(),
+      })
+    }
 
     await db.movements.add({
       id: uid('mv_'),

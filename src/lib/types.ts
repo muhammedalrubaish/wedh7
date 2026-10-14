@@ -65,6 +65,11 @@ export interface Part {
   priceRetail: number
   priceWholesale: number
   qty: number
+  /**
+   * يُصنع حسب الطلب: يُباع ولو رصيده صفر، والحركات تُسجَّل في الدفتر دون أن تحرّك
+   * `qty`. غيابه = منتج عادي، وهو حال كل قاعدة لم يُطبَّق عليها ترحيل العمود.
+   */
+  unlimited?: boolean
   reorderPoint: number
   reorderQty: number
   leadTimeDays: number

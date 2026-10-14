@@ -132,11 +132,19 @@ export function PartForm({
   async function save() {
     if (!user || !validate()) return
     setSaving(true)
+    // `false` يُرسل فقط لمنتج يعرف الخادمُ عموده: قاعدة بلا ترحيل «بدون حد» ترفض العمود
+    // المجهول، فمنتج عادي يجب أن يُحفظ عليها كما كان.
+    const unlimited = draft.unlimited ? true : part?.unlimited !== undefined ? false : undefined
     try {
       if (part) {
-        const qtyDelta = draft.qty - part.qty
+        // «بدون حد» لا رصيد يُعدّ: الخادم لا يحرّكه، فلا تسوية تُسجَّل من خانة معطّلة.
+        const qtyDelta = unlimited ? 0 : draft.qty - part.qty
         // `qty` لا يُرسل أبداً: `updatePart` يُسقطه، والفرق يدخل كحركة تسوية.
-        const patch: Partial<Part> = { ...withSellPrice(draft, draft.priceRetail), qty: part.qty }
+        const patch: Partial<Part> = {
+          ...withSellPrice(draft, draft.priceRetail),
+          qty: part.qty,
+          unlimited,
+        }
         // التكلفة لا تُرسل ممن لا يسعّر: خانتها معطّلة عنده، وقيمتها في المسودة قد تكون
         // صفراً أو محجوبة، فإرسالها يمحو تكلفة المنتج الحقيقية.
         if (!can('pricing.edit')) delete patch.cost
@@ -156,9 +164,10 @@ export function PartForm({
         const id = await createPart({
           ...withSellPrice(draft, draft.priceRetail),
           qty: 0,
+          unlimited,
           archived: false,
         })
-        if (draft.qty > 0) {
+        if (draft.qty > 0 && !unlimited) {
           await applyMovement({
             partId: id,
             qty: draft.qty,
@@ -182,6 +191,8 @@ export function PartForm({
   const margin = marginPercent(draft.priceRetail, draft.cost)
   // الحدّ صفر يعني «بدون حد» — `reorderSuggestions` يتخطّاه، فلا عمود جديد ولا ترحيل.
   const noLimit = draft.reorderPoint <= 0
+  // «بدون حد» للرصيد شيء آخر: يُباع ولو نفد. عمود `unlimited` وترحيله 20261017.
+  const unlimited = Boolean(draft.unlimited)
   const canPrice = can('pricing.edit')
 
   return (
@@ -392,34 +403,62 @@ export function PartForm({
 
         {/* سياسة المخزون */}
         <section className="grid gap-3 grid-cols-2 sm:grid-cols-4">
-          <Field label="الرصيد" hint={part ? 'التعديل يُسجَّل كتسوية' : 'الرصيد الافتتاحي'}>
-            <Input
-              type="number"
-              min="0"
-              className="tnum"
-              value={draft.qty}
-              onChange={(e) => set('qty', Number(e.target.value))}
-            />
-          </Field>
           <div>
             <Field
-              label="حدّ التنبيه"
-              hint={noLimit ? 'لا تنبيه حتى لو نفد' : 'ينبّه حين ينزل الرصيد تحته'}
+              label="الرصيد"
+              hint={
+                unlimited
+                  ? 'يُباع دائماً ولو نفد'
+                  : part
+                    ? 'التعديل يُسجَّل كتسوية'
+                    : 'الرصيد الافتتاحي'
+              }
             >
               <Input
                 type="number"
                 min="0"
                 className="tnum"
-                disabled={noLimit}
-                placeholder={noLimit ? 'بدون حد' : undefined}
-                value={noLimit ? '' : draft.reorderPoint}
+                disabled={unlimited}
+                placeholder={unlimited ? '∞' : undefined}
+                value={unlimited ? '' : draft.qty}
+                onChange={(e) => set('qty', Number(e.target.value))}
+              />
+            </Field>
+            <div className="mt-2">
+              <Switch
+                checked={unlimited}
+                // الإطفاء يعيد الرصيد المسجّل كما هو: لا تسوية خفية من رقم كان معطّلاً.
+                onChange={(v) => setDraft((d) => ({ ...d, unlimited: v, qty: part?.qty ?? 0 }))}
+                label="بدون حد"
+              />
+            </div>
+          </div>
+          <div>
+            <Field
+              label="حدّ التنبيه"
+              hint={
+                unlimited
+                  ? 'لا تنبيه — يُصنع حسب الطلب'
+                  : noLimit
+                    ? 'لا تنبيه حتى لو نفد'
+                    : 'ينبّه حين ينزل الرصيد تحته'
+              }
+            >
+              <Input
+                type="number"
+                min="0"
+                className="tnum"
+                disabled={noLimit || unlimited}
+                placeholder={noLimit || unlimited ? 'بدون حد' : undefined}
+                value={noLimit || unlimited ? '' : draft.reorderPoint}
                 onChange={(e) => set('reorderPoint', Number(e.target.value))}
               />
             </Field>
             {/* خارج `Field` عمداً: الحقل `<label>`، والضغط على نصّه كان سيقلب المفتاح. */}
             <div className="mt-2">
               <Switch
-                checked={noLimit}
+                checked={noLimit || unlimited}
+                disabled={unlimited}
                 onChange={(v) => set('reorderPoint', v ? 0 : BLANK.reorderPoint)}
                 label="بدون حد"
               />

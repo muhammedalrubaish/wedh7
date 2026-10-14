@@ -79,7 +79,8 @@
     "notes",
     "archived",
     "created_at",
-    "updated_at"
+    "updated_at",
+    "unlimited"
   ],
   "profiles": [
     "id",

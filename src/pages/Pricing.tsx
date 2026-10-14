@@ -18,6 +18,7 @@ import {
 } from '@/components/ui'
 import { Stat } from '@/components/Stat'
 import { audit, updateCategory, updatePart } from '@/lib/repo'
+import { countedQty } from '@/lib/analytics'
 import { marginPercent, money, num, round2 } from '@/lib/format'
 import { useApp } from '@/store/app'
 import { useActiveParts, useCategories } from '@/hooks/useShopData'
@@ -58,8 +59,8 @@ export default function Pricing() {
     const below = parts.filter((p) => p.priceRetail < p.cost)
     const weighted = parts.reduce(
       (acc, p) => {
-        acc.revenue += p.priceRetail * p.qty
-        acc.cost += p.cost * p.qty
+        acc.revenue += p.priceRetail * countedQty(p)
+        acc.cost += p.cost * countedQty(p)
         return acc
       },
       { revenue: 0, cost: 0 },

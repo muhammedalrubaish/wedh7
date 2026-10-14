@@ -29,6 +29,7 @@ import { Badge, Button, Card, CardHeader, EmptyState, Meter, Tabs } from '@/comp
 import { Stat } from '@/components/Stat'
 import {
   changePercent,
+  countedQty,
   dailySeries,
   inventoryValue,
   reorderSuggestions,
@@ -105,7 +106,8 @@ export default function Dashboard() {
 
   const byCategory = useMemo(() => {
     const map = new Map<string, number>()
-    for (const p of parts) map.set(p.categoryId, (map.get(p.categoryId) ?? 0) + p.qty * p.cost)
+    for (const p of parts)
+      map.set(p.categoryId, (map.get(p.categoryId) ?? 0) + countedQty(p) * p.cost)
     return categories
       .map((c) => ({ name: c.name, value: Math.round(map.get(c.id) ?? 0) }))
       .filter((r) => r.value > 0)

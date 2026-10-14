@@ -1,5 +1,6 @@
 import {
   byCustomer,
+  countedQty,
   deadStock,
   inventoryValue,
   reorderSuggestions,
@@ -74,7 +75,7 @@ export function buildSnapshot(input: {
   }
 
   const weak = parts
-    .filter((p) => !p.archived && p.qty > 0)
+    .filter((p) => !p.archived && (p.qty > 0 || p.unlimited))
     .map((p) => ({
       name: p.name,
       cost: p.cost,
@@ -108,7 +109,7 @@ export function buildSnapshot(input: {
   const catValue = new Map<string, number>()
   for (const p of parts) {
     if (p.archived) continue
-    catValue.set(p.categoryId, (catValue.get(p.categoryId) ?? 0) + p.qty * p.cost)
+    catValue.set(p.categoryId, (catValue.get(p.categoryId) ?? 0) + countedQty(p) * p.cost)
   }
 
   return {
