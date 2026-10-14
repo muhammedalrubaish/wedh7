@@ -4,7 +4,8 @@ import { Badge, Button, Card, CardHeader, Field, Input, Switch, useToast } from 
 import { cloudAuth, currentEmail, updateEmail, updatePassword } from '@/lib/auth'
 import { ROLE_LABELS } from '@/lib/permissions'
 import { useApp } from '@/store/app'
-import { getFeedbackPrefs, haptic, setFeedbackPrefs, tapSound } from '@/lib/feedback'
+import { haptic, tapSound } from '@/lib/feedback'
+import { useFeedbackPrefs } from '@/hooks/useFeedbackPrefs'
 
 /**
  * شاشة «حسابي»: كلمة المرور والبريد بيد صاحبهما وحده.
@@ -210,12 +211,10 @@ function EmailCard({ current }: { current: string | null }) {
  * في جواله ويطفئه الموظف في جوال الكاونتر. لذلك هنا لا في «الإعدادات» التي للمالك فقط.
  */
 function FeedbackCard() {
-  const [prefs, setPrefs] = useState(getFeedbackPrefs)
+  const [prefs, save] = useFeedbackPrefs()
 
   const update = (patch: Partial<typeof prefs>) => {
-    const next = { ...prefs, ...patch }
-    setPrefs(next)
-    setFeedbackPrefs(next)
+    save(patch)
     // معاينة فورية عند التشغيل: يعرف كيف يبدو قبل أن يقرّر.
     if (patch.haptics) haptic()
     if (patch.sound) tapSound()

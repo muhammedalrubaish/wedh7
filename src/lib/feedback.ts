@@ -16,6 +16,8 @@
  */
 
 const PREFS_KEY = 'wedh7.feedback'
+/** يُطلق عند كل تغيير: زر الصوت في الترويسة ومفتاحا «حسابي» يبقون متطابقين. */
+export const FEEDBACK_EVENT = 'wedh7:feedback'
 
 export interface FeedbackPrefs {
   haptics: boolean
@@ -39,6 +41,7 @@ export function setFeedbackPrefs(next: FeedbackPrefs) {
   } catch {
     // تخزين محجوب (تصفّح خاص): التفضيل يعود للافتراضي عند الفتح التالي — مقبول
   }
+  window.dispatchEvent(new Event(FEEDBACK_EVENT))
 }
 
 /* -------------------------------------------------------------------------- */

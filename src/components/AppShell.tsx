@@ -22,12 +22,16 @@ import {
   UserRoundCog,
   Users,
   UsersRound,
+  Volume2,
+  VolumeX,
 } from 'lucide-react'
 import { Badge, Button, cn } from './ui'
 import { DemoBanner } from './DemoBanner'
 import { BackupReminder } from './BackupReminder'
 import { Logo } from './Logo'
 import { useApp } from '@/store/app'
+import { useFeedbackPrefs } from '@/hooks/useFeedbackPrefs'
+import { tapSound } from '@/lib/feedback'
 import { ROLE_LABELS, type Capability } from '@/lib/permissions'
 import { db } from '@/lib/db'
 import { reorderSuggestions } from '@/lib/analytics'
@@ -243,6 +247,7 @@ export function AppShell() {
 
           <div className="flex-1" />
 
+          <SoundToggle />
           <Button variant="ghost" size="icon" onClick={toggleTheme} aria-label="تبديل المظهر">
             {settings.theme === 'dark' ? <Sun className="size-4" /> : <Moon className="size-4" />}
           </Button>
@@ -403,5 +408,30 @@ function NavSide({ items }: { items: typeof BOTTOM_NAV }) {
         </li>
       ))}
     </ul>
+  )
+}
+
+/**
+ * زر الصوت بجانب زر المظهر: إطفاؤه لا يحتاج البحث في «حسابي» — زبون واقف عند
+ * الكاونتر يكفي سبباً لإسكاته بضغطة. يتحكّم بالصوت وحده؛ الاهتزاز في «حسابي».
+ */
+function SoundToggle() {
+  const [prefs, save] = useFeedbackPrefs()
+  return (
+    <Button
+      variant="ghost"
+      size="icon"
+      aria-label={prefs.sound ? 'الصوت مفعّل — اضغط للإسكات' : 'الصوت مُسكت — اضغط للتشغيل'}
+      aria-pressed={prefs.sound}
+      onClick={() => {
+        const next = !prefs.sound
+        save({ sound: next })
+        // عند الإسكات تُسمع آخر نقرة من المستمع العام (قرأ التفضيل قبل التغيير)؛
+        // عند التشغيل لا شيء سمعه، فتُسمع النقرة هنا تأكيداً أن الصوت عاد.
+        if (next) tapSound()
+      }}
+    >
+      {prefs.sound ? <Volume2 className="size-4" /> : <VolumeX className="size-4 text-faint" />}
+    </Button>
   )
 }
