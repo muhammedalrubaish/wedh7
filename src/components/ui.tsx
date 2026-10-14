@@ -259,6 +259,23 @@ export function Switch({
 /* Modal                                                                       */
 /* -------------------------------------------------------------------------- */
 
+/**
+ * قفل تمرير الصفحة بعدّاد لا بحفظ القيمة السابقة واستعادتها. حين تتداخل نافذتان
+ * (نافذة «تم إصدار الفاتورة» ثم لوحة «فاتورة» في الشريط السفلي)، كانت الثانية تحفظ
+ * «مقفل» قيمةً سابقة وتعيدها عند إغلاقها بعد الأولى، فتبقى الصفحة لا تتحرّك حتى
+ * إعادة التحميل. العدّاد يفتح التمرير حين تُغلق آخر نافذة أيّاً كان الترتيب.
+ */
+let scrollLocks = 0
+
+function lockScroll() {
+  if (scrollLocks++ === 0) document.body.style.overflow = 'hidden'
+}
+
+function unlockScroll() {
+  scrollLocks = Math.max(0, scrollLocks - 1)
+  if (scrollLocks === 0) document.body.style.overflow = ''
+}
+
 export function Modal({
   open,
   onClose,
@@ -280,11 +297,10 @@ export function Modal({
     if (!open) return
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
     document.addEventListener('keydown', onKey)
-    const prev = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
+    lockScroll()
     return () => {
       document.removeEventListener('keydown', onKey)
-      document.body.style.overflow = prev
+      unlockScroll()
     }
   }, [open, onClose])
 

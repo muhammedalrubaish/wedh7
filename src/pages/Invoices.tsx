@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Download, FileText, MessageCircle, Printer, RotateCcw, Search, Undo2 } from 'lucide-react'
 import {
   Badge,
@@ -24,9 +24,9 @@ import { db } from '@/lib/db'
 import { audit, buildReturn, createReturn, refundInvoice, setInvoicePaid } from '@/lib/repo'
 import { daysAgo, dateTime, endOfDay, money, num } from '@/lib/format'
 import { printReturn } from '@/lib/print'
-import { invoicePdf } from '@/lib/invoicePdf'
+import { useInvoicePdf } from '@/hooks/useInvoicePdf'
 import { returnedByPart, summarize } from '@/lib/analytics'
-import { invoiceMessage, returnMessage, waLink } from '@/lib/whatsapp'
+import { returnMessage, waLink } from '@/lib/whatsapp'
 import { useApp } from '@/store/app'
 import { useCustomers, useInvoices, useReturns } from '@/hooks/useShopData'
 import { useLiveQuery } from 'dexie-react-hooks'
@@ -59,10 +59,6 @@ export default function Invoices() {
   const debounced = useDebounced(query)
   const [seller, setSeller] = useState('all')
   const [open, setOpen] = useState<Invoice | null>(null)
-  // ملف الفاتورة يُجهَّز لحظة فتحها لا عند الضغط: Safari يسمح بنافذة المشاركة داخل
-  // الضغطة نفسها فقط، وتجهيز الملف يستغرق لحظة تُفقدها إن جاء بعد الضغط.
-  const [pdf, setPdf] = useState<{ id: string; file: File } | null>(null)
-  const [pdfError, setPdfError] = useState(false)
   const [openReturn, setOpenReturn] = useState<ReturnNote | null>(null)
   const [refunding, setRefunding] = useState<Invoice | null>(null)
   const [returning, setReturning] = useState<Invoice | null>(null)
@@ -124,61 +120,12 @@ export default function Invoices() {
     }
   }
 
-  useEffect(() => {
-    if (!open) return
-    let live = true
-    setPdf(null)
-    setPdfError(false)
-    invoicePdf(open, settings, returnsByInvoice.get(open.id))
-      .then((file) => live && setPdf({ id: open.id, file }))
-      .catch((err) => {
-        console.error('تعذّر تجهيز ملف الفاتورة:', err)
-        if (live) setPdfError(true)
-      })
-    return () => {
-      live = false
-    }
-    // `returnsByInvoice` و`settings` يتغيّران بكل سحب للمرآة؛ الملف يُعاد عند فتح فاتورة
-    // أخرى أو تغيّر مرتجعاتها فقط.
-  }, [open?.id, open?.status, returnsByInvoice.get(open?.id ?? '')?.length])
-
-  const readyPdf = pdf && open && pdf.id === open.id ? pdf.file : null
-
-  /**
-   * واتساب = نافذة المشاركة بملف الـPDF: يختار المستخدم واتساب والمحل منها. رابط
-   * `wa.me` لا يحمل ملفاً، فيبقى بديلاً حين لا يدعم الجهاز مشاركة الملفات (الكمبيوتر):
-   * يُحفظ الملف ويُفتح واتساب بنصّ الفاتورة ليُرفق يدوياً.
-   */
-  async function shareInvoice(inv: Invoice) {
-    const file = readyPdf
-    if (file && navigator.canShare?.({ files: [file] })) {
-      try {
-        await navigator.share({ files: [file], title: file.name })
-      } catch (err) {
-        // إلغاء المستخدم ليس خطأً
-        if ((err as Error).name !== 'AbortError') {
-          toast('تعذّرت المشاركة — جرّب «حفظ» ثم أرسل الملف من واتساب.', 'warn')
-        }
-      }
-      return
-    }
-    if (file) saveInvoice()
-    window.open(waLink(phoneOf(inv.customerId), invoiceMessage(inv, settings)), '_blank')
-  }
-
-  /** حفظ في ملفات الجوال: تنزيل الملف — Safari يعرض «تنزيل» ثم يحفظه في «الملفات». */
-  function saveInvoice() {
-    if (!readyPdf) return
-    const url = URL.createObjectURL(readyPdf)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = readyPdf.name
-    // في الصفحة لا معلّقاً: بعض المتصفحات تتجاهل اسم `download` لرابط خارج المستند
-    document.body.append(a)
-    a.click()
-    a.remove()
-    setTimeout(() => URL.revokeObjectURL(url), 10_000)
-  }
+  const pdf = useInvoicePdf(
+    open,
+    settings,
+    open ? returnsByInvoice.get(open.id) : undefined,
+    open ? phoneOf(open.customerId) : undefined,
+  )
 
   return (
     <div className="space-y-4">
@@ -402,8 +349,8 @@ export default function Invoices() {
                 <Button
                   variant="soft"
                   className="w-full sm:order-3 sm:w-auto"
-                  loading={!readyPdf && !pdfError}
-                  onClick={() => shareInvoice(open)}
+                  loading={pdf.loading}
+                  onClick={pdf.share}
                 >
                   <MessageCircle className="size-4" />
                   واتساب
@@ -411,9 +358,9 @@ export default function Invoices() {
                 <Button
                   variant="primary"
                   className="w-full sm:order-4 sm:w-auto"
-                  loading={!readyPdf && !pdfError}
-                  disabled={pdfError}
-                  onClick={saveInvoice}
+                  loading={pdf.loading}
+                  disabled={pdf.error}
+                  onClick={pdf.save}
                 >
                   <Download className="size-4" />
                   حفظ

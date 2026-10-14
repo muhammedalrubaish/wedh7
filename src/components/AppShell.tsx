@@ -502,6 +502,9 @@ function NavGroup({
             <NavLink
               key={to}
               to={to}
+              // الإغلاق عند الضغط لا عند تغيّر الصفحة وحده: اختيار الصفحة المفتوحة نفسها
+              // (فاتورة بيع وأنت في البيع) لا يغيّر المسار فتبقى اللوحة مفتوحة.
+              onClick={() => setOpen(false)}
               className={({ isActive }) =>
                 cn(
                   'flex min-h-28 flex-col justify-between gap-3 rounded-2xl border p-3.5 transition-colors',

@@ -6,7 +6,7 @@ import {
   MessageCircle,
   Minus,
   Plus,
-  Printer,
+  Download,
   Search,
   ShoppingCart,
   Trash2,
@@ -31,8 +31,7 @@ import { nextNumber } from '@/lib/db'
 import { cloudEnabled } from '@/lib/supabase'
 import { audit, createSale } from '@/lib/repo'
 import { money, num, parseNum, round2 } from '@/lib/format'
-import { printInvoice } from '@/lib/print'
-import { invoiceMessage, waLink } from '@/lib/whatsapp'
+import { useInvoicePdf } from '@/hooks/useInvoicePdf'
 import { useApp } from '@/store/app'
 import { useActiveParts, useCustomers } from '@/hooks/useShopData'
 import type { Customer, Invoice, InvoiceLine, Part, PaymentMethod } from '@/lib/types'
@@ -268,6 +267,8 @@ export default function Pos() {
   }
 
   const donePhone = done ? customers.find((c) => c.id === done.customerId)?.phone : undefined
+  // نفس الملف والزرّين في قائمة الفواتير: ما يصل المحل لا يختلف باختلاف الشاشة.
+  const donePdf = useInvoicePdf(done, settings, undefined, donePhone)
 
   return (
     <div className="grid gap-4 lg:grid-cols-[1fr_22rem]">
@@ -553,7 +554,8 @@ export default function Pos() {
         </div>
       </Card>
 
-      {/* الفاتورة بعد الإصدار: طباعة أو واتساب — طلب العميل الحرفي. */}
+      {/* الفاتورة بعد الإصدار: ملف PDF يُرسل بواتساب أو يُحفظ في الجوال — بطلب العميل
+          الطباعة الورقية أُزيلت. */}
       <Modal
         open={Boolean(done)}
         onClose={() => setDone(null)}
@@ -564,21 +566,18 @@ export default function Pos() {
             <Button variant="ghost" onClick={() => setDone(null)}>
               إغلاق
             </Button>
-            {done && (
-              <a
-                href={waLink(donePhone, invoiceMessage(done, settings))}
-                target="_blank"
-                rel="noreferrer"
-              >
-                <Button variant="soft">
-                  <MessageCircle className="size-4" />
-                  واتساب
-                </Button>
-              </a>
-            )}
-            <Button variant="primary" onClick={() => done && printInvoice(done, settings)}>
-              <Printer className="size-4" />
-              طباعة
+            <Button variant="soft" loading={donePdf.loading} onClick={donePdf.share}>
+              <MessageCircle className="size-4" />
+              واتساب
+            </Button>
+            <Button
+              variant="primary"
+              loading={donePdf.loading}
+              disabled={donePdf.error}
+              onClick={donePdf.save}
+            >
+              <Download className="size-4" />
+              حفظ
             </Button>
           </>
         }
