@@ -410,7 +410,7 @@ export async function bulkUpdateParts(ids: string[], patch: BulkPartPatch): Prom
 
   guardOnline()
   const row: Record<string, unknown> = { updated_at: new Date(now).toISOString() }
-  if (patch.categoryId !== undefined) row.category_id = patch.categoryId
+  if (patch.categoryId !== undefined) row.category_id = patch.categoryId || null
   if (patch.supplierId !== undefined) row.supplier_id = patch.supplierId || null
   if (patch.location !== undefined) row.location = patch.location?.trim() || null
   if (patch.reorderPoint !== undefined) row.reorder_point = patch.reorderPoint

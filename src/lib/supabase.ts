@@ -134,7 +134,20 @@ export function humanError(err: unknown): string {
     return 'قاعدة البيانات تحتاج تحديثاً: شغّل آخر ترحيل من مجلد supabase/migrations في SQL Editor.'
   }
   if (code === '23505') return 'هذه القيمة مستخدمة من قبل.'
-  if (code === '23503') return 'العملية تشير إلى سجل غير موجود.'
+  if (code === '23503') {
+    // نفس الرمز لاتجاهين: حذف صفّ تعتمد عليه صفوف أخرى، أو إدراج يشير إلى صفّ مفقود.
+    if (/update or delete on table/i.test(msg)) {
+      return 'لا يمكن الحذف: هذا السجل مستخدم في فواتير أو طلبات قائمة.'
+    }
+    // اسم القيد يحدّد ما المفقود؛ «سجل غير موجود» وحدها لا تخبر صاحب المحل ماذا يغيّر.
+    if (/supplier/i.test(msg))
+      return 'المورد المختار غير موجود في القاعدة — اختر مورداً آخر أو «بلا مورد».'
+    if (/categor/i.test(msg))
+      return 'التصنيف المختار غير موجود في القاعدة — حدّث الصفحة واختر تصنيفاً.'
+    if (/customer/i.test(msg))
+      return 'العميل المختار غير موجود في القاعدة — حدّث الصفحة واختره من جديد.'
+    return 'العملية تشير إلى سجل غير موجود — ربما حُذف من جهاز آخر. حدّث الصفحة وأعد المحاولة.'
+  }
   if (/Invalid login credentials/i.test(msg)) return 'البريد أو كلمة المرور غير صحيحة.'
   if (/Email not confirmed/i.test(msg)) return 'الحساب يحتاج تأكيد البريد أولاً.'
   if (/Failed to fetch|NetworkError|fetch failed/i.test(msg)) {

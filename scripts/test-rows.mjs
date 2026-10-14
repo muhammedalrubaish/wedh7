@@ -314,6 +314,31 @@ ok(
   'reorder_qty = 0 يُرفع إلى 1 مطابقةً لقيد الجدول',
 )
 
+// ---- 5-ب) «بلا مورد» نص فارغ في النموذج ← null لا '' ----
+// '' مفتاح أجنبي لا يطابق أي صف: Postgres يرفض المنتج كله (23503). حدث فعلاً
+// على الإنتاج مع أول منتج أُضيف بلا مورد.
+{
+  const row = R.fromPart({
+    id: 'p',
+    sku: 's',
+    name: 'n',
+    categoryId: '',
+    supplierId: '',
+    cost: 0,
+    priceRetail: 0,
+    priceWholesale: 0,
+    qty: 0,
+    reorderPoint: 0,
+    reorderQty: 1,
+    leadTimeDays: 0,
+    archived: false,
+    createdAt: 0,
+    updatedAt: 0,
+  })
+  ok(row.supplier_id === null, "supplier_id = '' ← null (بلا مورد)")
+  ok(row.category_id === null, "category_id = '' ← null")
+}
+
 // ---- 6) الإعدادات: vat_enabled الغائب يعني مفعّلة ----
 ok(
   R.toSettings({ shop_name: 'وضح' }, { id: 'app', theme: 'dark', aiApiKey: 'k', invoiceCounter: 9 })

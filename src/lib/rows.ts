@@ -228,8 +228,10 @@ export function fromPart(p: Part): Row {
     sku: p.sku,
     name: p.name,
     name_en: p.nameEn ?? null,
-    category_id: p.categoryId,
-    supplier_id: p.supplierId ?? null,
+    // `||` لا `??`: قائمة «بلا مورد» في النموذج قيمتها نص فارغ، والنص الفارغ مفتاح
+    // أجنبي لا يطابق أي صف فيرفضه Postgres (23503) — كل منتج جديد بلا مورد كان يفشل.
+    category_id: p.categoryId || null,
+    supplier_id: p.supplierId || null,
     tax_rate: p.taxRate ?? null,
     price_retail: p.priceRetail,
     price_wholesale: p.priceWholesale,
