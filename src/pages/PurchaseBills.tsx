@@ -35,7 +35,7 @@ import {
   createPurchaseItem,
   deletePurchaseBill,
   renamePurchaseGroup,
-  replacePurchaseBill,
+  updatePurchaseBill,
   updatePurchaseItem,
 } from '@/lib/repo'
 import { cloudEnabled } from '@/lib/supabase'
@@ -788,7 +788,7 @@ function BillForm({ onClose, bill }: { onClose: () => void; bill?: PurchaseBill 
       }
       let saved: PurchaseBill
       if (bill) {
-        const res = await replacePurchaseBill(bill.id, input)
+        const res = await updatePurchaseBill(bill.id, input)
         saved = res.bill
         if (!res.oldRemoved) {
           // التعديل حُفظ؛ النافذة تُغلق كي لا يُضغط الحفظ مرة ثانية فتصير ثلاث نسخ.

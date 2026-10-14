@@ -21,7 +21,7 @@ import {
   saveSettings as saveSettingsLocal,
   uid,
 } from './db'
-import { cloudEnabled, humanError, requireClient } from './supabase'
+import { cloudEnabled, humanError, isMissingSchema, requireClient } from './supabase'
 import { refreshInvoice, refreshPart, refreshParts, refreshReturn } from './mirror'
 import { returnUnitPrice, returnedByPart } from './analytics'
 import { round2 } from './format'
@@ -939,14 +939,93 @@ export async function createPurchaseBill(input: PurchaseBillInput): Promise<Purc
 }
 
 /**
- * تعديل مصروف = مصروف جديد بالبيانات المعدّلة ثم حذف القديم. لا سياسة تعديل على
- * `purchase_bills` عمداً (انظر `deletePurchaseBill`)، ودالة تعديل ذرّية على الخادم
- * تعديلٌ لدوال القاعدة يحتاج استشارة — فيُبنى التعديل من الدالتين القائمتين.
+ * تعديل المصروف على نفس الفاتورة: `update_purchase_bill` تستبدل البنود وتعيد حساب
+ * الإجمالي في معاملة واحدة، فلا يبقى مصروف مكرّر إن انقطع الاتصال، ولا يتغيّر رقمه
+ * فيبقى مربوطاً بسجل التدقيق. البند الذي كان في الفاتورة يحتفظ باسمه وبنده الرئيسي
+ * يوم الشراء — لقطة لا يعيد التعديل كتابتها.
  *
- * الجديد أولاً: إن فشل حذف القديم بعده يبقى المصروفان ظاهرين ويُحذف أحدهما يدوياً؛
- * أما الحذف أولاً ففشل الإنشاء بعده يُضيع المصروف كله. `oldRemoved` يخبر الشاشة.
+ * قاعدة لم يُطبَّق عليها ترحيل الدالة (20261018) تعود إلى الطريقة القديمة: مصروف
+ * جديد ثم حذف القديم. الجديد أولاً لأن فشل الإنشاء بعد الحذف يُضيع المصروف كله؛
+ * و`oldRemoved` يخبر الشاشة إن بقيت النسخة القديمة.
  */
-export async function replacePurchaseBill(
+export async function updatePurchaseBill(
+  id: string,
+  input: PurchaseBillInput,
+): Promise<{ bill: PurchaseBill; oldRemoved: boolean }> {
+  if (input.lines.length === 0) throw new Error('أضف بنداً واحداً على الأقل.')
+  for (const l of input.lines) {
+    if (!(l.qty > 0)) throw new Error('الكمية في كل بند يجب أن تكون أكبر من صفر.')
+    if (!(l.unitPrice >= 0)) throw new Error('السعر في كل بند يجب ألّا يكون سالباً.')
+  }
+
+  if (!cloudEnabled) {
+    const old = await db.purchaseBills.get(id)
+    if (!old) throw new Error('المصروف غير موجود — ربما حُذف.')
+    const items = new Map((await db.purchaseItems.toArray()).map((x) => [x.id, x]))
+    const snaps = new Map(old.lines.filter((l) => l.itemId).map((l) => [l.itemId, l]))
+    const supplier = input.supplierId ? await db.suppliers.get(input.supplierId) : undefined
+    const lines = input.lines.map((l) => {
+      const item = items.get(l.itemId)
+      if (!item) throw new Error('أحد الأصناف في المصروف غير موجود.')
+      const snap = snaps.get(item.id)
+      return {
+        itemId: item.id,
+        name: snap?.name ?? item.name,
+        kind: snap?.kind ?? item.kind,
+        unit: l.unit?.trim() || item.unit,
+        qty: l.qty,
+        unitPrice: l.unitPrice,
+      }
+    })
+    const bill: PurchaseBill = {
+      ...old,
+      supplierId: supplier?.id,
+      supplierName:
+        supplier && supplier.id === old.supplierId && old.supplierName
+          ? old.supplierName
+          : supplier?.name,
+      ref: input.ref?.trim() || undefined,
+      purchasedAt: input.purchasedAt,
+      total: round2(lines.reduce((n, l) => n + round2(l.qty * l.unitPrice), 0)),
+      notes: input.notes?.trim() || undefined,
+      lines,
+    }
+    await db.purchaseBills.put(bill)
+    return { bill, oldRemoved: true }
+  }
+
+  guardOnline()
+  const client = requireClient()
+  const { error } = await client.rpc('update_purchase_bill', {
+    p_id: id,
+    p_supplier_id: input.supplierId ?? null,
+    p_purchased_at: new Date(input.purchasedAt).toISOString(),
+    p_ref: input.ref ?? null,
+    p_notes: input.notes ?? null,
+    p_lines: input.lines.map((l) => ({
+      item_id: l.itemId,
+      qty: l.qty,
+      unit_price: l.unitPrice,
+      unit: l.unit ?? null,
+    })),
+  })
+  if (error) {
+    if (isMissingSchema(error)) return replaceViaCreate(id, input)
+    fail(error)
+  }
+  const { data: full, error: readErr } = await client
+    .from('purchase_bills')
+    .select('*, purchase_bill_lines(*)')
+    .eq('id', id)
+    .single()
+  if (readErr) fail(readErr)
+  const bill = toPurchaseBill(full as Record<string, unknown>)
+  await db.purchaseBills.put(bill)
+  return { bill, oldRemoved: true }
+}
+
+/** الطريقة القديمة، لقاعدة بلا `update_purchase_bill` فقط. */
+async function replaceViaCreate(
   oldId: string,
   input: PurchaseBillInput,
 ): Promise<{ bill: PurchaseBill; oldRemoved: boolean }> {
