@@ -4,7 +4,6 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import {
   Bot,
   ChevronLeft,
-  Contact,
   FileText,
   LayoutDashboard,
   LogOut,
@@ -66,8 +65,7 @@ const NAV: Array<{ section: string; items: NavItem[] }> = [
       },
       { to: '/pricing', label: 'التسعير', icon: Tags, cap: 'pricing.view' },
       { to: '/bills', label: 'فواتير المشتريات', icon: Receipt, cap: 'purchase.view' },
-      { to: '/suppliers', label: 'الموردون', icon: Contact, cap: 'purchase.view' },
-      { to: '/purchases', label: 'طلبات التوريد', icon: Truck, cap: 'purchase.view' },
+      { to: '/purchases', label: 'الموردون والتوريد', icon: Truck, cap: 'purchase.view' },
     ],
   },
   {
@@ -277,8 +275,8 @@ const TITLES: Record<string, string> = {
   pos: 'فاتورة جديدة',
   inventory: 'المنتجات',
   pricing: 'التسعير',
-  suppliers: 'الموردون',
-  purchases: 'طلبات التوريد',
+  suppliers: 'الموردون والتوريد',
+  purchases: 'الموردون والتوريد',
   bills: 'فواتير المشتريات',
   invoices: 'الفواتير والمرتجعات',
   customers: 'العملاء',
@@ -322,9 +320,15 @@ const BOTTOM_NAV: Array<NavItem & { short: string }> = [
     cap: 'purchase.view',
   },
   { to: '/reports', label: 'التقارير', short: 'التقارير', icon: PieChart, cap: 'reports.view' },
-  // التوريد في مكان «حسابي» بطلب العميل: زران على كل جانب من «اللوحة» فيتوازن الشريط.
-  // «حسابي» باقٍ في القائمة الجانبية (اسم المستخدم أسفلها) — يُفتح نادراً.
-  { to: '/purchases', label: 'طلبات التوريد', short: 'التوريد', icon: Truck, cap: 'purchase.view' },
+  // «فاتورة جديدة» مكان التوريد بطلب العميل: البيع أكثر ما يُفتح في اليوم، والتوريد
+  // نادر فبقي في القائمة الجانبية. زران على كل جانب من «اللوحة» فيتوازن الشريط.
+  {
+    to: '/pos',
+    label: 'فاتورة جديدة',
+    short: 'فاتورة',
+    icon: ShoppingCart,
+    cap: 'sales.create',
+  },
 ]
 
 function BottomNav() {

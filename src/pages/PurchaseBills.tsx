@@ -48,6 +48,14 @@ const KIND_TONES: Record<PurchaseKind, Tone> = {
   expense: 'warn',
 }
 
+/** مثال في خانة الاسم يتبع النوع: في «أخرى» تحديداً الاسم هو كل الوصف. */
+const NAME_HINT: Record<PurchaseKind, string> = {
+  ingredient: 'اسم المكوّن: قشطة، سكر، دقيق…',
+  packaging: 'اسم التغليف: كرتون بوكس، شريطة…',
+  expense: 'اسم المصروف: إيجار المحل، كهرباء…',
+  equipment: 'اكتب ما صرفت عليه: شراء ثلاجة، صيانة الفرن…',
+}
+
 /** الوحدة الأولى المقترحة لكل نوع — تُعدَّل، لكنها توفّر كتابة «كيلو» عشرين مرة. */
 const DEFAULT_UNIT: Record<PurchaseKind, string> = {
   ingredient: 'كيلو',
@@ -711,18 +719,20 @@ function BillForm({ onClose }: { onClose: () => void }) {
 
               {newFor === l.key && (
                 <div className="mt-3 space-y-2.5 rounded-lg bg-surface-2 p-3">
-                  <Input
-                    autoFocus
-                    value={newName}
-                    onChange={(e) => setNewName(e.target.value)}
-                    placeholder="اسم الصنف: قشطة، كرتون بوكس، إيجار المحل…"
-                  />
+                  {/* النوع أولاً ثم الاسم: مثال الخانة يتغيّر بالنوع فيعرف ماذا يكتب. */}
                   <KindPicker
                     value={newKind}
                     onChange={(k) => {
                       setNewKind(k)
                       setNewUnit(DEFAULT_UNIT[k])
                     }}
+                  />
+                  <Input
+                    autoFocus
+                    value={newName}
+                    onChange={(e) => setNewName(e.target.value)}
+                    aria-label="اسم الصنف"
+                    placeholder={NAME_HINT[newKind]}
                   />
                   <div className="flex items-center gap-2">
                     <Input

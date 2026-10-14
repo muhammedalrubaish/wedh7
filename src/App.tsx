@@ -22,10 +22,10 @@ const Pos = lazy(() => import('./pages/Pos'))
 // وتعود بسطر الاستيراد ومسار `scan` إن احتيج إليها. الرابط القديم يُحوَّل إلى اللوحة.
 const Invoices = lazy(() => import('./pages/Invoices'))
 const CustomersPage = lazy(() => import('./pages/Customers'))
-const Purchases = lazy(() => import('./pages/Purchases'))
+// طلبات التوريد والموردون مدموجان في صفحة واحدة بتبويبين — انظر `Supply.tsx`.
+const Supply = lazy(() => import('./pages/Supply'))
 const PurchaseBills = lazy(() => import('./pages/PurchaseBills'))
 const Pricing = lazy(() => import('./pages/Pricing'))
-const Suppliers = lazy(() => import('./pages/Suppliers'))
 const Reports = lazy(() => import('./pages/Reports'))
 const Accountant = lazy(() => import('./pages/Accountant'))
 const UsersPage = lazy(() => import('./pages/Users'))
@@ -115,7 +115,7 @@ export default function App() {
             path="purchases"
             element={
               <Guard cap="purchase.view">
-                <Purchases />
+                <Supply />
               </Guard>
             }
           />
@@ -135,14 +135,8 @@ export default function App() {
               </Guard>
             }
           />
-          <Route
-            path="suppliers"
-            element={
-              <Guard cap="purchase.view">
-                <Suppliers />
-              </Guard>
-            }
-          />
+          {/* الرابط القديم يبقى صالحاً: يفتح تبويب الموردين في الصفحة المدموجة. */}
+          <Route path="suppliers" element={<Navigate to="/purchases?tab=suppliers" replace />} />
           <Route
             path="reports"
             element={

@@ -417,11 +417,18 @@ export function changePercent(current: number, previous: number): number | null 
 /* المشتريات                                                                   */
 /* -------------------------------------------------------------------------- */
 
+/**
+ * الترتيب هنا ترتيب العرض (`PURCHASE_KINDS`): «أخرى» آخراً.
+ *
+ * المفتاح `equipment` باقٍ وإن صار اسمه «أخرى» بطلب العميل: قيد `purchase_items.kind`
+ * في القاعدة يعرفه بهذا الاسم، وتغييره ترحيل يمسّ كل فاتورة مشتريات سابقة لأجل
+ * تسمية فقط. العميل يكتب ما صرف عليه في اسم الصنف («شراء ثلاجة»).
+ */
 export const PURCHASE_KIND_LABELS: Record<PurchaseKind, string> = {
   ingredient: 'مكونات',
   packaging: 'تغليف',
-  equipment: 'أدوات ومعدات',
   expense: 'مصاريف',
+  equipment: 'أخرى',
 }
 
 export const PURCHASE_KINDS = Object.keys(PURCHASE_KIND_LABELS) as PurchaseKind[]

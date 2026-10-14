@@ -167,7 +167,8 @@ src/lib/permissions.ts مصفوفة الأدوار (نسخة الواجهة)
 src/components/ui.tsx  نظام التصميم كاملاً
 api/ai.ts              وسيط المزوّد على Vercel
 supabase/migrations/   المخطّط الحقيقي مع RLS — ثلاثة ترحيلات بالترتيب
-src/pages/PurchaseBills.tsx فواتير المشتريات (مكونات، تغليف، أدوات، مصاريف)
+src/pages/PurchaseBills.tsx فواتير المشتريات (مكونات، تغليف، مصاريف، أخرى)
+src/pages/Supply.tsx   طلبات التوريد والموردون بتبويبين (`/purchases`، و`/suppliers` يُحوَّل إليها)
 docs/متطلبات-العميل.md ما طلبه العميل حرفياً
 ```
 
