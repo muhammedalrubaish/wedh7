@@ -57,7 +57,6 @@ const STYLE = `
   .qr { text-align: center; margin-top: calc(var(--u) * 12); flex-shrink: 0; }
   .qr img { width: calc(var(--u) * 110); height: calc(var(--u) * 110); }
   .qr .muted { margin-top: 0; }
-  .foot { text-align: center; color: #666; font-size: calc(var(--u) * 11.5); margin-top: calc(var(--u) * 14); }
   .refunded { border: 1px solid #c00; color: #c00; text-align: center; font-weight: 700; padding: calc(var(--u) * 4); margin-top: calc(var(--u) * 10); }
   .box { border: 1px solid #999; border-radius: calc(var(--u) * 5); padding: calc(var(--u) * 6) calc(var(--u) * 8); margin-top: calc(var(--u) * 12); font-size: calc(var(--u) * 12.5); }
   .logo { display: block; width: 36%; height: auto; margin: 0 auto calc(var(--u) * 6); }
@@ -184,7 +183,6 @@ ${qr ? `<div class="qr"><img src="${qr}" alt="ZATCA QR"><p class="muted">رمز 
 ${invoice.notes ? `<p class="muted" style="white-space:pre-wrap;margin-top:6px">ملاحظة: ${esc(invoice.notes)}</p>` : ''}
 ${returnsBlock}
 ${invoice.status === 'refunded' ? '<p class="refunded">مسترجعة بالكامل</p>' : ''}
-<p class="foot">يُرجى حفظ الحلويات مبرّدة</p>
 </div></body></html>`
 
   openAndPrint(html)
