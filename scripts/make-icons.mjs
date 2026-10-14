@@ -1,63 +1,79 @@
 /**
- * توليد أيقونات التطبيق من نفس هندسة الأيقونة في `index.html`.
+ * توليد أيقونات التطبيق (التبويب، الشاشة الرئيسية، أندرويد) من شعار العميل نفسه.
  *
- * لماذا تُولَّد بدل أن تُرسم يدوياً: الأيقونة موجودة أصلاً كـ SVG مضمّن في
- * `index.html`، ونسخها كصور ثابتة يعني مصدرين للحقيقة ينحرفان عند أول تعديل
- * لون. هنا تبقى الإحداثيات واحدة، وإعادة التوليد أمر واحد.
+ * المصدر `public/brand-mark.png`: كلمة «وُضح» والجمل بقناع شفافية، وهو نفسه خلفية
+ * الصفحات وشاشة التحميل والقائمة الجانبية. الأيقونة تُشتق منه بدل أن تُرسم يدوياً
+ * كي يبقى للهوية مصدر واحد — تغيير الشعار يعني استبدال ملف وإعادة هذا الأمر.
  *
- * ولماذا بلا مكتبة: توليد PNG يحتاج zlib وCRC فقط، وكلاهما في Node نفسه.
- * إضافة `sharp` أو `canvas` تعني اعتمادية ثنائية ثقيلة لأجل ثلاث صور تُبنى مرة.
+ * ولماذا بلا مكتبة: فكّ PNG وترميزه يحتاجان zlib وCRC فقط، وكلاهما في Node نفسه.
+ * إضافة `sharp` أو `canvas` تعني اعتمادية ثنائية ثقيلة لأجل خمس صور تُبنى مرة.
  *
  * التشغيل: node scripts/make-icons.mjs
  */
-import { deflateSync } from 'node:zlib'
-import { writeFileSync, mkdirSync } from 'node:fs'
+import { deflateSync, inflateSync } from 'node:zlib'
+import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
 
-// عنابي البوكس وبيج الحروف على غطائه — نفس ألوان `index.css` وأيقونة التبويب.
+// عنابي البوكس خلفيةً وبيج الشعار فوقه — نفس رموز `index.css`.
 const BRAND = [0x70, 0x29, 0x28]
-const WHITE = [0xd9, 0xaf, 0x97]
+const MARK = [0xd9, 0xaf, 0x97]
 
 /* -------------------------------------------------------------------------- */
-/* هندسة الأيقونة — بإحداثيات الـ viewBox الأصلي (32×32)، انظر `Logo.tsx`       */
+/* فكّ PNG — رمادي بشفافية (LA) أو RGBA، ٨ بت، بلا تشذير، كما يُصدَّر الشعار     */
 /* -------------------------------------------------------------------------- */
 
-/** `translate(3.2 3.2) scale(0.8)` في الـ SVG — يُطبَّق على شكل البوكس وحده. */
-const gx = (x) => 3.2 + 0.8 * x
-const gy = (y) => 3.2 + 0.8 * y
-
-/** مستطيل `x y w h rx` في الـ SVG إلى مركز ونصفَي عرض وارتفاع بعد التحجيم. */
-const rect = ([x, y, w, h, r]) => ({
-  cx: gx(x + w / 2),
-  cy: gy(y + h / 2),
-  hw: (0.8 * w) / 2,
-  hh: (0.8 * h) / 2,
-  r: 0.8 * r,
-})
-
-/** جسم البوكس: حدّ لا تعبئة. */
-const BODY = rect([5, 12.5, 22, 13, 2.6])
-const BODY_STROKE = (2.6 * 0.8) / 2 // نصف عرض الحدّ بعد التحجيم
-
-/** لا أشكال مستطيلة معبّأة بعد حذف الغطاء؛ تبقى المصفوفة كي يضاف إليها بلا تعديل الرسم. */
-const FILLS = []
-
-/** قطع الحلى الثلاث البارزة فوق حافة البوكس: `cx cy r` قبل التحجيم. */
-const SWEETS = [
-  [9.8, 11, 3.1],
-  [16, 9.6, 3.1],
-  [22.2, 11, 3.1],
-].map(([x, y, r]) => ({ cx: gx(x), cy: gy(y), r: 0.8 * r }))
-
-/* -------------------------------------------------------------------------- */
-/* دوال المسافة — التنعيم يأتي من أخذ عيّنات فرعية لا من تمويه                  */
-/* -------------------------------------------------------------------------- */
-
-const sdRoundRect = (px, py, { cx, cy, hw, hh, r }) => {
-  const dx = Math.abs(px - cx) - (hw - r)
-  const dy = Math.abs(py - cy) - (hh - r)
-  const ax = Math.max(dx, 0)
-  const ay = Math.max(dy, 0)
-  return Math.hypot(ax, ay) + Math.min(Math.max(dx, dy), 0) - r
+/** قناة الشفافية وحدها بين ٠ و١: الشعار قناع، ولونه يُختار هنا. */
+function readAlpha(path) {
+  const buf = readFileSync(path)
+  let width = 0
+  let height = 0
+  let channels = 0
+  const idat = []
+  for (let off = 8; off < buf.length; ) {
+    const len = buf.readUInt32BE(off)
+    const type = buf.toString('ascii', off + 4, off + 8)
+    const data = buf.subarray(off + 8, off + 8 + len)
+    if (type === 'IHDR') {
+      width = data.readUInt32BE(0)
+      height = data.readUInt32BE(4)
+      const [depth, color, , , interlace] = data.subarray(8)
+      channels = { 4: 2, 6: 4 }[color] ?? 0
+      if (depth !== 8 || !channels || interlace) {
+        throw new Error(`${path}: المتوقَّع PNG ‏٨ بت LA أو RGBA بلا تشذير`)
+      }
+    }
+    if (type === 'IDAT') idat.push(data)
+    off += 12 + len
+  }
+  const raw = inflateSync(Buffer.concat(idat))
+  const stride = width * channels
+  const px = Buffer.alloc(stride * height)
+  // عكس مرشّحات PNG الخمسة سطراً سطراً
+  for (let y = 0; y < height; y++) {
+    const filter = raw[y * (stride + 1)]
+    const src = y * (stride + 1) + 1
+    const row = y * stride
+    for (let x = 0; x < stride; x++) {
+      const a = x >= channels ? px[row + x - channels] : 0
+      const b = y ? px[row - stride + x] : 0
+      const c = y && x >= channels ? px[row - stride + x - channels] : 0
+      const v = raw[src + x]
+      let out = v
+      if (filter === 1) out = v + a
+      else if (filter === 2) out = v + b
+      else if (filter === 3) out = v + ((a + b) >> 1)
+      else if (filter === 4) {
+        const p = a + b - c
+        const pa = Math.abs(p - a)
+        const pb = Math.abs(p - b)
+        const pc = Math.abs(p - c)
+        out = v + (pa <= pb && pa <= pc ? a : pb <= pc ? b : c)
+      }
+      px[row + x] = out & 0xff
+    }
+  }
+  const alpha = new Float32Array(width * height)
+  for (let i = 0; i < width * height; i++) alpha[i] = px[i * channels + channels - 1] / 255
+  return { width, height, alpha }
 }
 
 /* -------------------------------------------------------------------------- */
@@ -85,7 +101,7 @@ const chunk = (type, data) => {
   return Buffer.concat([len, body, crc])
 }
 
-/** RGBA8 بلا تشذيب: ثلاث صور صغيرة لا تستحق تعقيد المرشّحات. */
+/** RGBA8 بلا تشذيب: صور صغيرة لا تستحق تعقيد المرشّحات. */
 function encodePng(width, height, rgba) {
   const ihdr = Buffer.alloc(13)
   ihdr.writeUInt32BE(width, 0)
@@ -110,42 +126,56 @@ function encodePng(width, height, rgba) {
 /* الرسم                                                                       */
 /* -------------------------------------------------------------------------- */
 
-const SS = 4 // عيّنات فرعية لكل محور
+const mark = readAlpha('public/brand-mark.png')
+
+/** متوسط الشفافية في مستطيل من الشعار — تصغير بالمساحة لا بأقرب بكسل، فلا تتكسّر الحواف. */
+function coverage(x0, y0, x1, y1) {
+  const xa = Math.max(0, Math.floor(x0))
+  const ya = Math.max(0, Math.floor(y0))
+  const xb = Math.min(mark.width, Math.ceil(x1))
+  const yb = Math.min(mark.height, Math.ceil(y1))
+  let sum = 0
+  for (let y = ya; y < yb; y++) {
+    const wy = Math.min(y + 1, y1) - Math.max(y, y0)
+    for (let x = xa; x < xb; x++) {
+      const w = (Math.min(x + 1, x1) - Math.max(x, x0)) * wy
+      sum += mark.alpha[y * mark.width + x] * w
+    }
+  }
+  const full = (x1 - x0) * (y1 - y0)
+  return full > 0 ? sum / full : 0
+}
 
 /**
- * `inset` يصغّر الشكل داخل المربع لأيقونات `maskable`: أندرويد يقصّ الأطراف
- * بأشكال مختلفة (دائرة، مربع مستدير، معيّن)، والمضمون هو الـ٨٠٪ الوسطى.
+ * الشعار عريض (١٥٤٠×٦٣٤)، فيُوسَّط أفقياً بعرض `width` من ضلع المربع. `rounded`
+ * يقصّ زوايا الخلفية لأيقونة التبويب؛ iOS وأندرويد يقصّانها بأنفسهما.
  */
-function render(size, { rounded = true, inset = 1 } = {}) {
+function render(size, { width = 0.82, rounded = false } = {}) {
   const rgba = Buffer.alloc(size * size * 4)
-  const scale = size / 32
-  const pad = (32 * (1 - inset)) / 2
+  const w = size * width
+  const scale = mark.width / w // بكسلات الشعار لكل بكسل أيقونة
+  const h = mark.height / scale
+  const ox = (size - w) / 2
+  const oy = (size - h) / 2
+  const r = size * 0.22
 
   for (let y = 0; y < size; y++) {
     for (let x = 0; x < size; x++) {
-      let bg = 0
-      let fg = 0
-      for (let sy = 0; sy < SS; sy++) {
-        for (let sx = 0; sx < SS; sx++) {
-          // إلى فضاء الـ 32×32
-          const ux = (x + (sx + 0.5) / SS) / scale
-          const uy = (y + (sy + 0.5) / SS) / scale
-          // الخلفية تملأ المربع كاملاً؛ الشكل وحده هو ما ينكمش في maskable
-          if (!rounded || sdRoundRect(ux, uy, { cx: 16, cy: 16, hw: 16, hh: 16, r: 7 }) <= 0) bg++
-
-          const px = (ux - pad) / inset
-          const py = (uy - pad) / inset
-          if (Math.abs(sdRoundRect(px, py, BODY)) <= BODY_STROKE) fg++
-          else if (FILLS.some((b) => sdRoundRect(px, py, b) <= 0)) fg++
-          else if (SWEETS.some((c) => Math.hypot(px - c.cx, py - c.cy) <= c.r)) fg++
-        }
+      const f = coverage(
+        (x - ox) * scale,
+        (y - oy) * scale,
+        (x + 1 - ox) * scale,
+        (y + 1 - oy) * scale,
+      )
+      // زاوية مستديرة بتنعيم بكسل واحد
+      let a = 1
+      if (rounded) {
+        const dx = Math.max(r - x - 0.5, x + 0.5 - (size - r), 0)
+        const dy = Math.max(r - y - 0.5, y + 0.5 - (size - r), 0)
+        a = Math.min(1, Math.max(0, r - Math.hypot(dx, dy) + 0.5))
       }
-      const n = SS * SS
-      const a = bg / n
-      const f = fg / n
       const i = (y * size + x) * 4
-      // الشكل بيج فوق خلفية عنابية — يُمزجان قبل الكتابة كي تبقى الحواف نظيفة
-      for (let c = 0; c < 3; c++) rgba[i + c] = Math.round(BRAND[c] * (1 - f) + WHITE[c] * f)
+      for (let c = 0; c < 3; c++) rgba[i + c] = Math.round(BRAND[c] * (1 - f) + MARK[c] * f)
       rgba[i + 3] = Math.round(255 * a)
     }
   }
@@ -155,11 +185,14 @@ function render(size, { rounded = true, inset = 1 } = {}) {
 mkdirSync('public', { recursive: true })
 
 const outputs = [
-  // iOS يتجاهل الشفافية ويضيف استدارته الخاصة — تُولَّد بمربع كامل بلا استدارة.
-  ['public/apple-touch-icon.png', render(180, { rounded: false })],
+  // التبويب صغير جداً: الشعار أعرض ما يمكن كي تُقرأ الكلمة.
+  ['public/favicon-64.png', render(64, { width: 0.9, rounded: true })],
+  // iOS يتجاهل الشفافية ويضيف استدارته الخاصة — مربع كامل بلا استدارة.
+  ['public/apple-touch-icon.png', render(180)],
   ['public/icon-192.png', render(192)],
   ['public/icon-512.png', render(512)],
-  ['public/icon-maskable-512.png', render(512, { rounded: false, inset: 0.72 })],
+  // أندرويد يقصّ الأطراف بأشكال مختلفة (دائرة، مربع مستدير)؛ المضمون هو الوسط.
+  ['public/icon-maskable-512.png', render(512, { width: 0.66 })],
 ]
 
 for (const [path, buf] of outputs) {

@@ -5,10 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#702928" />
     <meta name="description" content="نظام مبيعات ومخزون لمعمل ومحل «وضح» للحلويات — بوكسات، عملاء، مرتجعات، وكشوف حساب" />
-    <link
-      rel="icon"
-      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23702928'/%3E%3Cg transform='translate(3.2 3.2) scale(0.8)'%3E%3Crect x='5' y='12.5' width='22' height='13' rx='2.6' fill='none' stroke='%23d9af97' stroke-width='2.6'/%3E%3Ccircle cx='9.8' cy='11' r='3.1' fill='%23d9af97'/%3E%3Ccircle cx='16' cy='9.6' r='3.1' fill='%23d9af97'/%3E%3Ccircle cx='22.2' cy='11' r='3.1' fill='%23d9af97'/%3E%3C/g%3E%3C/svg%3E"
-    />
+    <!-- كل الأيقونات مشتقّة من شعار العميل (`public/brand-mark.png`) عبر
+         `node scripts/make-icons.mjs` — مصدر واحد للهوية. -->
+    <link rel="icon" type="image/png" sizes="64x64" href="/favicon-64.png" />
     <title>وضح</title>
 
     <!-- المظهر قبل أول رسم: الإعدادات في IndexedDB ولا تُقرأ إلا بعد تحميل JS، فبدون
@@ -44,8 +43,8 @@
 
     <!-- «إضافة إلى الشاشة الرئيسية»: النظام يُفتح من أيقونة لا من عنوان مكتوب،
          وهذا ما يحتاجه من يقف خلف الكاونتر. `standalone` يُخفي شريط العنوان
-         فتكسب الشاشة مساحته، والأيقونات تُولَّد من نفس هندسة أيقونة الصفحة
-         أعلاه عبر `node scripts/make-icons.mjs` — مصدر واحد لا اثنان. -->
+         فتكسب الشاشة مساحته، والأيقونات تُولَّد من الشعار
+         عبر `node scripts/make-icons.mjs` — مصدر واحد لا اثنان. -->
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <meta name="apple-mobile-web-app-title" content="وضح" />

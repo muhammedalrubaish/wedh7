@@ -28,7 +28,6 @@ import { Badge, Button, cn } from './ui'
 import { DemoBanner } from './DemoBanner'
 import { BackupReminder } from './BackupReminder'
 import { AuditButton } from './AuditLog'
-import { Logo } from './Logo'
 import { Splash } from './Splash'
 import { useApp } from '@/store/app'
 import { useFeedbackPrefs } from '@/hooks/useFeedbackPrefs'
@@ -119,14 +118,10 @@ export function AppShell() {
 
   const sidebar = (
     <div className="flex h-full flex-col">
-      <div className="flex items-center gap-2.5 px-5 py-5">
-        <span className="grid size-9 place-items-center rounded-xl bg-brand text-on-brand shadow-sm">
-          <Logo className="size-5" />
-        </span>
-        <div className="min-w-0">
-          <p className="truncate text-[15px] font-semibold leading-tight">وضح</p>
-          <p className="truncate text-[11px] text-faint">{settings.shopName}</p>
-        </div>
+      {/* شعار العميل نفسه بدل الأيقونة: الكلمة «وُضح» تغني عن كتابة الاسم بجانبها.
+          `brand-logo` يتبع لون الهوية في الفاتح والداكن. */}
+      <div className="px-5 py-5">
+        <div role="img" aria-label={settings.shopName || 'وضح'} className="brand-logo h-11" />
       </div>
 
       <nav className="flex-1 space-y-5 overflow-y-auto px-3 pb-4">

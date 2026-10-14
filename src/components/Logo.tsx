@@ -7,8 +7,9 @@
  * أشكال قليلة كي يبقى مقروءاً عند ١٦-٢٤ بكسل (حجم أيقونة التبويب والقائمة
  * الجانبية) — الشكل الذي لا يُقرأ صغيراً ليس شعاراً.
  *
- * نفس الهندسة تُستعمل في `index.html` (أيقونة التبويب) و`scripts/make-icons.mjs`
- * (أيقونات الشاشة الرئيسية) — مصدر واحد لا ثلاثة.
+ * أيقونة التبويب والشاشة الرئيسية والقائمة الجانبية صارت من شعار العميل نفسه
+ * (`public/brand-mark.png`، انظر `scripts/make-icons.mjs`). هذا الرمز باقٍ لشاشات
+ * الدخول والخطأ فقط.
  */
 export function Logo({ className = 'size-5' }: { className?: string }) {
   return (
@@ -28,7 +29,3 @@ export function Logo({ className = 'size-5' }: { className?: string }) {
     </svg>
   )
 }
-
-/** نفس الشكل كـ data URI لأيقونة التبويب — بلا ملف خارجي ولا طلب شبكة. */
-export const FAVICON_SVG =
-  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23702928'/%3E%3Cg transform='translate(3.2 3.2) scale(0.8)'%3E%3Crect x='5' y='12.5' width='22' height='13' rx='2.6' fill='none' stroke='%23d9af97' stroke-width='2.6'/%3E%3Ccircle cx='9.8' cy='11' r='3.1' fill='%23d9af97'/%3E%3Ccircle cx='16' cy='9.6' r='3.1' fill='%23d9af97'/%3E%3Ccircle cx='22.2' cy='11' r='3.1' fill='%23d9af97'/%3E%3C/g%3E%3C/svg%3E"
