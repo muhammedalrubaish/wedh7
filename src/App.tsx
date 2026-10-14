@@ -1,4 +1,5 @@
 import { Suspense, lazy } from 'react'
+import { Splash } from './components/Splash'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { AppShell } from './components/AppShell'
 import { useApp } from './store/app'
@@ -31,12 +32,9 @@ const UsersPage = lazy(() => import('./pages/Users'))
 const SettingsPage = lazy(() => import('./pages/Settings'))
 const Account = lazy(() => import('./pages/Account'))
 
+/** أول تحميل كامل (قبل أن يوجد إطار الصفحة). الانتقال بين الصفحات له حدّه داخل الإطار. */
 function RouteFallback() {
-  return (
-    <div className="grid place-items-center py-24">
-      <div className="size-8 animate-spin rounded-full border-2 border-border border-t-brand" />
-    </div>
-  )
+  return <Splash />
 }
 
 function Guard({ cap, children }: { cap: Capability; children: React.ReactNode }) {

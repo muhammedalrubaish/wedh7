@@ -11,6 +11,37 @@
     />
     <title>وضح</title>
 
+    <!-- المظهر قبل أول رسم: الإعدادات في IndexedDB ولا تُقرأ إلا بعد تحميل JS، فبدون
+         هذا تومض الصفحة فاتحةً ثم تصير داكنة. `store/app.tsx` يكتب هذه النسخة. -->
+    <script>
+      try {
+        if (localStorage.getItem('wedh7.theme') === 'dark')
+          document.documentElement.classList.add('dark')
+      } catch (e) {}
+    </script>
+    <link rel="preload" as="image" href="/brand-mark.png" />
+    <!-- شاشة التحميل الأولى قبل JS: أطول انتظار على شبكة الجوال. أنماطها هنا لأن
+         index.css لم يُحمَّل بعد، وألوانها نفس رموز الهوية. React يستبدلها كلها عند
+         أول رسم. نفس الشكل في src/components/Splash.tsx. -->
+    <style>
+      html { background: #f6ece2; }
+      html.dark { background: #1f1314; }
+      .boot { min-height: 100dvh; display: grid; place-items: center; }
+      .boot > div { display: flex; flex-direction: column; align-items: center; gap: 24px; }
+      .boot-logo {
+        width: 192px; aspect-ratio: 1540 / 634; background: #702928;
+        -webkit-mask: url('/brand-mark.png') center / contain no-repeat;
+        mask: url('/brand-mark.png') center / contain no-repeat;
+      }
+      .boot-spin {
+        width: 32px; height: 32px; border-radius: 50%; border: 3px solid #e6d6c7;
+        border-top-color: #702928; animation: boot-spin 0.9s linear infinite;
+      }
+      html.dark .boot-logo { background: #d9af97; }
+      html.dark .boot-spin { border-color: #3d2a2b; border-top-color: #d9af97; }
+      @keyframes boot-spin { to { transform: rotate(360deg); } }
+    </style>
+
     <!-- «إضافة إلى الشاشة الرئيسية»: النظام يُفتح من أيقونة لا من عنوان مكتوب،
          وهذا ما يحتاجه من يقف خلف الكاونتر. `standalone` يُخفي شريط العنوان
          فتكسب الشاشة مساحته، والأيقونات تُولَّد من نفس هندسة أيقونة الصفحة
@@ -42,7 +73,11 @@
       <div class="room-plane room-right"><i></i><i></i></div>
     </div>
     <div class="brand-watermark" aria-hidden="true"></div>
-    <div id="root"></div>
+    <div id="root">
+      <div class="boot" role="status" aria-label="جارٍ التحميل">
+        <div><div class="boot-logo"></div><div class="boot-spin"></div></div>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

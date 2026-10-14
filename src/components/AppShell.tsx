@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import {
@@ -29,6 +29,7 @@ import { Badge, Button, cn } from './ui'
 import { DemoBanner } from './DemoBanner'
 import { BackupReminder } from './BackupReminder'
 import { Logo } from './Logo'
+import { Splash } from './Splash'
 import { useApp } from '@/store/app'
 import { useFeedbackPrefs } from '@/hooks/useFeedbackPrefs'
 import { tapSound } from '@/lib/feedback'
@@ -258,7 +259,10 @@ export function AppShell() {
         {/* الحشوة السفلية تساوي ارتفاع الشريط السفلي وبروز زر اللوحة وحافة الآيفون، وإلا
         اختبأ آخر زر في الصفحة (حفظ، إصدار الفاتورة) تحته. */}
         <main className="mx-auto max-w-[1400px] px-4 pt-5 pb-[calc(7.5rem+env(safe-area-inset-bottom))] sm:px-6 lg:py-7">
-          <Outlet />
+          {/* حدّ تعليق داخل الإطار: الصفحة الجديدة تُحمَّل والترويسة والشريط السفلي ثابتان. */}
+          <Suspense fallback={<Splash compact />}>
+            <Outlet />
+          </Suspense>
         </main>
         <BottomNav />
       </div>

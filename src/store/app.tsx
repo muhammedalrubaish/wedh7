@@ -1,3 +1,4 @@
+import { Splash } from '@/components/Splash'
 import {
   createContext,
   useCallback,
@@ -85,6 +86,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!settings) return
     document.documentElement.classList.toggle('dark', settings.theme === 'dark')
+    // نسخة سريعة للمظهر: سكربت أعلى `index.html` يقرؤها قبل أول رسم، فلا تومض الصفحة
+    // فاتحةً ثم تصير داكنة، وتظهر شاشة التحميل الأولى بلون المظهر الصحيح.
+    try {
+      localStorage.setItem('wedh7.theme', settings.theme)
+    } catch {
+      // تخزين محجوب: يبقى الوميض القديم فقط، لا شيء يتعطّل
+    }
   }, [settings])
 
   const login = useCallback(async (identifier: string, secret: string) => {
@@ -134,14 +142,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   )
 
   if (!value) {
-    return (
-      <div className="grid min-h-dvh place-items-center bg-bg">
-        <div className="flex flex-col items-center gap-3 text-muted">
-          <div className="size-10 animate-spin rounded-full border-2 border-border border-t-brand" />
-          <p className="text-sm">جارٍ تجهيز النظام…</p>
-        </div>
-      </div>
-    )
+    return <Splash />
   }
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
