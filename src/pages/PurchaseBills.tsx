@@ -773,7 +773,13 @@ function BillForm({ onClose }: { onClose: () => void }) {
       <div className="space-y-4">
         <div className="grid gap-3 sm:grid-cols-3">
           <Field label="المورد" hint="اختياري">
-            <Select value={supplierId} onChange={(e) => setSupplierId(e.target.value)}>
+            <Select
+              value={supplierId}
+              onChange={(e) => {
+                setSupplierId(e.target.value)
+                if (!e.target.value) setRef('')
+              }}
+            >
               <option value="">بلا مورد</option>
               {[...suppliers]
                 .sort((a, b) => a.name.localeCompare(b.name, 'ar'))
@@ -792,9 +798,13 @@ function BillForm({ onClose }: { onClose: () => void }) {
               onChange={(e) => setDay(e.target.value)}
             />
           </Field>
-          <Field label="رقم فاتورة المورد" hint="اختياري — للمطابقة">
-            <Input value={ref} onChange={(e) => setRef(e.target.value)} dir="ltr" />
-          </Field>
+          {/* بلا مورد لا فاتورة مورد تُطابَق: الخانة تختفي بطلب العميل، وما كُتب فيها
+              يُفرَّغ عند اختيار «بلا مورد» كي لا يُحفظ رقم بلا صاحب. */}
+          {supplierId && (
+            <Field label="رقم فاتورة المورد" hint="اختياري — للمطابقة">
+              <Input value={ref} onChange={(e) => setRef(e.target.value)} dir="ltr" />
+            </Field>
+          )}
         </div>
 
         <div className="space-y-3">
