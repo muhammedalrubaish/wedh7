@@ -136,7 +136,11 @@ export function PartForm({
       if (part) {
         const qtyDelta = draft.qty - part.qty
         // `qty` لا يُرسل أبداً: `updatePart` يُسقطه، والفرق يدخل كحركة تسوية.
-        await updatePart(part.id, { ...withSellPrice(draft, draft.priceRetail), qty: part.qty })
+        const patch: Partial<Part> = { ...withSellPrice(draft, draft.priceRetail), qty: part.qty }
+        // التكلفة لا تُرسل ممن لا يسعّر: خانتها معطّلة عنده، وقيمتها في المسودة قد تكون
+        // صفراً أو محجوبة، فإرسالها يمحو تكلفة المنتج الحقيقية.
+        if (!can('pricing.edit')) delete patch.cost
+        await updatePart(part.id, patch)
         if (qtyDelta !== 0) {
           await applyMovement({
             partId: part.id,

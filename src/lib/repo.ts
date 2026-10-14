@@ -351,9 +351,15 @@ export async function createPart(
     return id
   }
   guardOnline()
+  // التكلفة تُرسل صراحةً: `fromPart` يُسقطها، فكان كل منتج جديد يُحفظ بتكلفة صفر على
+  // الخادم وتظهر أرباحه ١٠٠٪. في معمل الحلويات التكلفة رقم يحدّده صاحبه لا متوسط شراء.
   const { error } = await requireClient()
     .from('parts')
-    .insert({ ...fromPart(part), created_at: new Date(now).toISOString() })
+    .insert({
+      ...fromPart(part),
+      ...(part.cost !== undefined ? { cost: part.cost } : {}),
+      created_at: new Date(now).toISOString(),
+    })
   if (error) fail(error)
   await refreshPart(id)
   return id
@@ -397,8 +403,11 @@ export async function updatePart(id: string, patch: Partial<Part>): Promise<void
   if (!current) throw new Error('المنتج غير موجود')
   const next: Part = { ...current, ...patch }
   const row = fromPart(next)
-  // `qty` و`cost` لا يُكتبان أبداً: الأول يُشتق من الدفتر والثاني يُحسب بالمتوسط
-  // المرجّح عند الاستلام. و`fromPart` يُسقطهما أصلاً — هذا تذكير لا حماية.
+  // `qty` لا يُكتب أبداً: يُشتق من الدفتر. و`fromPart` يُسقطه أصلاً — هذا تذكير لا حماية.
+  // `cost` كان يُسقط أيضاً بحجّة أنه يُحسب بالمتوسط المرجّح عند الاستلام، فكان تعديل
+  // التكلفة من «التسعير» أو بطاقة المنتج يُحفظ ظاهرياً ولا يصل الخادم. يُكتب الآن حين
+  // يُرسل صراحةً في `patch` فقط: من لا يرى التكلفة تصله `undefined` فلا يمحوها بصفر.
+  if (patch.cost !== undefined) row.cost = patch.cost
   const { error } = await requireClient().from('parts').update(row).eq('id', id)
   if (error) fail(error)
   await refreshPart(id)
