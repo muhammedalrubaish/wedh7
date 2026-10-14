@@ -313,9 +313,15 @@ type BottomItem = NavItem & {
 
 const BOTTOM_NAV: BottomItem[] = [
   { to: '/inventory', label: 'المنتجات', short: 'المنتجات', icon: Package, cap: 'inventory.view' },
-  // العملاء في مكان «المصروفات» بعد دمجها تحت «فاتورة»: زران على كل جانب من «اللوحة».
-  { to: '/customers', label: 'العملاء', short: 'العملاء', icon: UsersRound, cap: 'sales.create' },
-  { to: '/reports', label: 'التقارير', short: 'التقارير', icon: PieChart, cap: 'reports.view' },
+  // يمين «اللوحة»: المصروفات؛ يسارها: «فاتورة» ثم التقارير — بطلب العميل. العملاء في
+  // القائمة الجانبية وحدها. الترتيب هنا من اليمين في RTL.
+  {
+    to: '/bills',
+    label: 'المصروفات',
+    short: 'المصروفات',
+    icon: Receipt,
+    cap: 'purchase.view',
+  },
   // كل ما هو «فاتورة» تحت أيقونة واحدة بطلب العميل: البيع والمشتريات والمصروفات.
   {
     to: '/pos',
@@ -353,6 +359,7 @@ const BOTTOM_NAV: BottomItem[] = [
       },
     ],
   },
+  { to: '/reports', label: 'التقارير', short: 'التقارير', icon: PieChart, cap: 'reports.view' },
 ]
 
 function BottomNav() {
