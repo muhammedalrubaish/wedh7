@@ -1,7 +1,17 @@
 import { useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { ArrowRight, Boxes, Coins, Layers, Pencil, Printer, Scale, TrendingUp } from 'lucide-react'
+import {
+  ArrowRight,
+  Boxes,
+  Coins,
+  Layers,
+  Pencil,
+  Printer,
+  Scale,
+  Trash2,
+  TrendingUp,
+} from 'lucide-react'
 import {
   Button,
   Card,
@@ -20,7 +30,7 @@ import { Stat } from '@/components/Stat'
 import { BarcodeSvg, printLabels } from '@/components/Barcode'
 import { PartForm } from '@/components/PartForm'
 import { db } from '@/lib/db'
-import { applyMovement, audit } from '@/lib/repo'
+import { applyMovement, audit, deletePart } from '@/lib/repo'
 import { marginPercent, money, num, relative } from '@/lib/format'
 import { velocity } from '@/lib/analytics'
 import { useApp } from '@/store/app'
@@ -58,6 +68,8 @@ export default function PartDetail() {
   const [tab, setTab] = useState<Tab>('movements')
   const [editOpen, setEditOpen] = useState(false)
   const [adjustOpen, setAdjustOpen] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const [copies, setCopies] = useState(6)
 
   const v30 = useMemo(() => (part ? velocity(movements, part.id, 30) : 0), [movements, part])
@@ -78,6 +90,21 @@ export default function PartDetail() {
   }
 
   const category = categories.find((c) => c.id === part.categoryId)
+
+  async function removePart() {
+    if (!part || !user) return
+    setDeleting(true)
+    try {
+      await deletePart(part.id)
+      await audit(user, 'حذف منتج', 'part', part.id, `${part.name} — الرصيد ${part.qty}`)
+      toast(`تم حذف «${part.name}»`)
+      navigate('/inventory', { replace: true })
+    } catch (err) {
+      toast(err instanceof Error ? err.message : 'تعذّر الحذف', 'error')
+      setDeleting(false)
+      setDeleteOpen(false)
+    }
+  }
   const supplier = suppliers.find((s) => s.id === part.supplierId)
   const margin = marginPercent(part.priceRetail, part.cost)
   const showCost = can('pricing.view')
@@ -111,6 +138,17 @@ export default function PartDetail() {
             <Button variant="primary" onClick={() => setEditOpen(true)}>
               <Pencil className="size-4" />
               تعديل
+            </Button>
+          )}
+          {can('inventory.edit') && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setDeleteOpen(true)}
+              aria-label="حذف المنتج"
+              title="حذف المنتج"
+            >
+              <Trash2 className="size-4 text-danger" />
             </Button>
           )}
         </div>
@@ -254,6 +292,33 @@ export default function PartDetail() {
       </div>
 
       <PartForm open={editOpen} onClose={() => setEditOpen(false)} part={part} />
+
+      <Modal
+        open={deleteOpen}
+        onClose={() => setDeleteOpen(false)}
+        title={`حذف «${part.name}» نهائياً؟`}
+        size="sm"
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setDeleteOpen(false)}>
+              تراجع
+            </Button>
+            <Button variant="danger" loading={deleting} onClick={removePart}>
+              <Trash2 className="size-4" />
+              حذف نهائي
+            </Button>
+          </>
+        }
+      >
+        <ul className="space-y-2 text-[13px] leading-6 text-muted">
+          <li>✅ الفواتير السابقة تبقى كما هي باسمه وسعره، ولا يتغيّر رقم في التقارير.</li>
+          <li>
+            🗑️ يُحذف رصيده (<span className="tnum font-semibold text-text">{num(part.qty)}</span>{' '}
+            بوكس) وسجل حركته كاملاً.
+          </li>
+          <li>⚠️ لا يمكن التراجع. لمنتج توقّف بيعه فقط، الأرشفة أفضل: يختفي ويبقى سجله.</li>
+        </ul>
+      </Modal>
 
       <AdjustModal
         open={adjustOpen}

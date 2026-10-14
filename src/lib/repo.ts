@@ -359,6 +359,34 @@ export async function createPart(
   return id
 }
 
+/**
+ * حذف منتج نهائياً — لمنتج أُضيف خطأً أو مكرّراً. للمنتج الذي توقّف بيعه: الأرشفة.
+ *
+ * ما يبقى: الفواتير والمرتجعات كما هي — بنودها لقطة وقت البيع (الاسم والسعر والتكلفة)،
+ * و`part_id` يصير فارغاً على الخادم (`on delete set null`)، فلا يتغيّر رقم في تقرير.
+ * ما يُحذف معه: دفتر حركته (`on delete cascade`) — رصيده لا معنى له بلا منتج.
+ * ما يمنعه: طلب توريد يحويه (`on delete restrict`) — يُسمّى السبب قبل الذهاب للخادم.
+ *
+ * `.select()` لا زخرفة: الحذف بلا صلاحية لا يُرجع خطأً تحت RLS بل صفر صفوف، فبدونه
+ * يختفي المنتج من جهاز الموظف ويبقى في القاعدة (جُرِّب على Postgres بحساب موظف).
+ */
+export async function deletePart(id: string): Promise<void> {
+  const orders = await db.purchaseOrders.toArray()
+  if (orders.some((po) => po.lines.some((l) => l.partId === id))) {
+    throw new Error('المنتج موجود في طلب توريد — احذف الطلب أولاً، أو أرشف المنتج بدل حذفه.')
+  }
+  if (cloudEnabled) {
+    guardOnline()
+    const { data, error } = await requireClient().from('parts').delete().eq('id', id).select('id')
+    if (error) fail(error)
+    if (!data?.length) throw new Error('ما عندك صلاحية لحذف المنتجات.')
+  }
+  await db.transaction('rw', db.parts, db.movements, async () => {
+    await db.parts.delete(id)
+    await db.movements.where('partId').equals(id).delete()
+  })
+}
+
 export async function updatePart(id: string, patch: Partial<Part>): Promise<void> {
   if (!cloudEnabled) {
     await db.parts.update(id, { ...patch, updatedAt: Date.now() })
