@@ -321,18 +321,52 @@ export default function Reports() {
             {date(from)} — {date(to)} · {monthLabel(to)}
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Tabs
-            value={period}
-            onChange={setPeriod}
-            items={[
-              { value: 'thisMonth', label: 'هذا الشهر' },
-              { value: 'lastMonth', label: 'الشهر الماضي' },
-              { value: 'week', label: '٧ أيام' },
-              { value: 'quarter', label: '٩٠ يوم' },
-              { value: 'custom', label: 'مخصّص' },
-            ]}
-          />
+        <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
+          {/* الفترة والطباعة والتصدير في سطر واحد على الجوال بطلب العميل: الزرّان أيقونتان
+              والاسم في `aria-label`، والتبويبات تتمدّد لما بقي. «الشهر الماضي» يُختصر
+              على الجوال وحده كي يتسع السطر لـ٣٦٠ بكسل. */}
+          <div className="flex w-full items-center gap-1.5 sm:w-auto sm:gap-2">
+            <Tabs
+              value={period}
+              onChange={setPeriod}
+              className="min-w-0 flex-1 justify-between gap-0 [&>button]:px-1.5 [&>button]:text-[12px] [&>button]:whitespace-nowrap sm:flex-none sm:gap-1 sm:[&>button]:px-3 sm:[&>button]:text-[13px]"
+              items={[
+                { value: 'thisMonth', label: 'هذا الشهر' },
+                {
+                  value: 'lastMonth',
+                  label: (
+                    <>
+                      <span className="sm:hidden">الماضي</span>
+                      <span className="hidden sm:inline">الشهر الماضي</span>
+                    </>
+                  ),
+                },
+                { value: 'week', label: '٧ أيام' },
+                { value: 'quarter', label: '٩٠ يوم' },
+                { value: 'custom', label: 'مخصّص' },
+              ]}
+            />
+            <Button
+              variant="secondary"
+              size="icon"
+              className="shrink-0"
+              onClick={printDetailed}
+              aria-label="طباعة تفصيلية"
+              title="طباعة تفصيلية"
+            >
+              <Printer className="size-4" />
+            </Button>
+            <Button
+              variant="secondary"
+              size="icon"
+              className="shrink-0"
+              onClick={exportCsv}
+              aria-label="تصدير CSV"
+              title="تصدير CSV"
+            >
+              <Download className="size-4" />
+            </Button>
+          </div>
           {period === 'custom' && (
             <div className="flex items-center gap-2">
               <input
@@ -353,14 +387,6 @@ export default function Reports() {
               />
             </div>
           )}
-          <Button variant="secondary" onClick={printDetailed}>
-            <Printer className="size-4" />
-            طباعة تفصيلية
-          </Button>
-          <Button variant="secondary" onClick={exportCsv}>
-            <Download className="size-4" />
-            تصدير CSV
-          </Button>
         </div>
       </div>
 
