@@ -170,18 +170,27 @@ export default function Invoices() {
       </div>
 
       <Card className="p-3">
-        <div className="flex flex-wrap gap-2">
-          <div className="relative min-w-52 flex-1">
+        <div className="flex items-center gap-2">
+          <div className="relative min-w-0 flex-1">
             <Search className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-faint" />
             <Input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="رقم الفاتورة أو اسم العميل أو الصنف…"
+              placeholder="رقم أو عميل أو صنف…"
+              aria-label="ابحث برقم الفاتورة أو اسم العميل أو الصنف"
+              title="ابحث برقم الفاتورة أو اسم العميل أو الصنف"
               className="pr-9"
             />
           </div>
           {view === 'invoices' && (
-            <Select value={seller} onChange={(e) => setSeller(e.target.value)} className="w-44">
+            // سهم القائمة الأصلي يحجز مساحته بنفسه؛ الحشوة اليسرى الكاملة كانت تدفع
+            // الشريط إلى صفّين على الجوال.
+            <Select
+              value={seller}
+              onChange={(e) => setSeller(e.target.value)}
+              aria-label="الموظف"
+              className="w-[7.5rem] shrink-0 pr-2.5 pl-1.5 sm:w-44 sm:pr-3 sm:pl-8"
+            >
               <option value="all">كل الموظفين</option>
               {users.map((u) => (
                 <option key={u.id} value={u.id}>
