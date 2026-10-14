@@ -101,11 +101,48 @@ export function setPrintColor(color: boolean): void {
 /** شعار الورقة حسب التفضيل: الملوّن بألوانه، والأبيض والأسود بالنسخة العنابية مسودّةً. */
 export const printLogo = (color = getPrintColor()) => logoImg(color ? 'color' : 'black')
 
-/** لمسات الهوية على الفاتورة الملوّنة فقط؛ الأبيض والأسود يبقى بالأسود كله. */
-const INVOICE_COLOR = `
-  h1, .grand { color: #631322; }
-  .tag { border-color: #631322; color: #631322; }
-  th, .grand { border-color: #631322; }
+/**
+ * ألوان الوضع الفاتح للموقع — نسخة من رموز `:root` في `index.css`. منسوخة لا مقروءة:
+ * نافذة الطباعة مستند مستقلّ لا يرى متغيّرات الصفحة، والموقع قد يكون في الوضع الداكن
+ * لحظة الطباعة بينما الورقة الملوّنة فاتحة دائماً. إن تغيّرت الهوية تتغيّر هنا معها.
+ */
+export const LIGHT = {
+  bg: 'oklch(0.972 0.012 65)',
+  surface: 'oklch(0.995 0.004 70)',
+  surface2: 'oklch(0.962 0.014 60)',
+  border: 'oklch(0.895 0.022 52)',
+  text: 'oklch(0.27 0.055 20)',
+  muted: 'oklch(0.5 0.04 32)',
+  faint: 'oklch(0.63 0.032 45)',
+  brand: 'oklch(0.385 0.101 24)',
+  brandStrong: 'oklch(0.304 0.07 18)',
+  brandSoft: 'oklch(0.935 0.028 45)',
+}
+
+/**
+ * الطباعة الملوّنة بشكل الوضع الفاتح: خلفية كريمية والفاتورة بطاقة فوقها. المتصفحات
+ * لا تطبع الخلفيات افتراضاً، و`print-color-adjust: exact` يطلبها صراحةً. الخلفية على
+ * `html` لا `body` كي تملأ كل صفحة لا أول صفحة فقط.
+ */
+export const LIGHT_PAGE = `
+  html { background: ${LIGHT.bg}; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body { color: ${LIGHT.text}; }
+`
+
+/** الفاتورة الملوّنة: بطاقة الموقع بحدودها وزواياها، والعناوين والمجموع بالعنابي. */
+const INVOICE_COLOR = `${LIGHT_PAGE}
+  .wrap { background: ${LIGHT.surface}; border: 1px solid ${LIGHT.border}; border-radius: calc(var(--u) * 16); }
+  h1 { color: ${LIGHT.brandStrong}; }
+  .muted { color: ${LIGHT.muted}; }
+  .sku { color: ${LIGHT.faint}; }
+  .tag { background: ${LIGHT.brandSoft}; border-color: transparent; color: ${LIGHT.brandStrong}; border-radius: 999px; }
+  .meta { border-color: ${LIGHT.border}; }
+  th { background: ${LIGHT.surface2}; color: ${LIGHT.muted}; border-bottom-color: ${LIGHT.border}; padding-left: calc(var(--u) * 6); padding-right: calc(var(--u) * 6); }
+  td { border-bottom-color: ${LIGHT.border}; }
+  td:first-child, th:first-child { padding-right: calc(var(--u) * 6); }
+  td:last-child, th:last-child { padding-left: calc(var(--u) * 6); }
+  .grand { color: ${LIGHT.brand}; border-top-color: ${LIGHT.brand}; }
+  .box { background: ${LIGHT.surface2}; border-color: ${LIGHT.border}; }
 `
 
 /** `false` حين يحجب المتصفح النافذة — المستدعي يخبر المستخدم بدل أن لا يحدث شيء. */

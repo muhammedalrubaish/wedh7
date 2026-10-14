@@ -1,5 +1,5 @@
 import { date, dateTime, money, num } from './format'
-import { esc, getPrintColor, openAndPrint, printLogo } from './print'
+import { LIGHT, LIGHT_PAGE, esc, getPrintColor, openAndPrint, printLogo } from './print'
 import type {
   CustomerPerformance,
   PartPerformance,
@@ -54,6 +54,19 @@ const STYLE = `
   .unpaid { color: #a40000; border-color: #a40000; }
   .note { margin-top: 14px; padding: 6px 8px; border: 1px dashed #bbb; border-radius: 6px; color: #444; font-size: 10px; }
   .empty { color: #777; font-size: 10px; padding: 4px 0; }
+`
+
+/** ملوّن بشكل الوضع الفاتح: خلفية كريمية، وبطاقات المؤشرات والجداول بيضاء فوقها. */
+const COLOR = `${LIGHT_PAGE}
+  header { border-bottom-color: ${LIGHT.brand}; }
+  h1 { color: ${LIGHT.brandStrong}; }
+  h2 { color: ${LIGHT.brand}; }
+  .muted, .kpi span { color: ${LIGHT.muted}; }
+  .kpi { background: ${LIGHT.surface}; border-color: ${LIGHT.border}; border-radius: 10px; }
+  table { background: ${LIGHT.surface}; border: 1px solid ${LIGHT.border}; }
+  th { background: ${LIGHT.brandSoft}; color: ${LIGHT.brandStrong}; border-bottom-color: ${LIGHT.border}; }
+  td { border-bottom-color: ${LIGHT.border}; }
+  .note { background: ${LIGHT.surface}; border-color: ${LIGHT.border}; color: ${LIGHT.muted}; }
 `
 
 /** أبيض وأسود: العناوين والحدود بالأسود، وخلفية رأس الجدول رمادي فاتح يُطبع بلا حبر ملوّن. */
@@ -226,7 +239,7 @@ export function printReport(data: ReportPrintData, settings: Settings): boolean 
 
   const html = `<!doctype html><html dir="rtl" lang="ar"><head><meta charset="utf-8">
 <title>${esc(data.title)} — ${esc(settings.shopName)}</title>
-<style>${STYLE}${getPrintColor() ? '' : MONO}</style></head><body>
+<style>${STYLE}${getPrintColor() ? COLOR : MONO}</style></head><body>
 <header>
   <div class="head">
     ${printLogo()}
