@@ -28,6 +28,7 @@ import {
 import { Badge, Button, cn } from './ui'
 import { DemoBanner } from './DemoBanner'
 import { BackupReminder } from './BackupReminder'
+import { AuditButton } from './AuditLog'
 import { Logo } from './Logo'
 import { Splash } from './Splash'
 import { useApp } from '@/store/app'
@@ -248,6 +249,7 @@ export function AppShell() {
 
           <div className="flex-1" />
 
+          <AuditButton />
           <SoundToggle />
           <Button variant="ghost" size="icon" onClick={toggleTheme} aria-label="تبديل المظهر">
             {settings.theme === 'dark' ? <Sun className="size-4" /> : <Moon className="size-4" />}

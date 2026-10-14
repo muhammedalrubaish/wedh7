@@ -16,7 +16,6 @@ import {
   Button,
   Card,
   CardHeader,
-  EmptyState,
   Field,
   Input,
   Modal,
@@ -26,6 +25,7 @@ import {
   cn,
   useToast,
 } from '@/components/ui'
+import { AuditList } from '@/components/AuditLog'
 import {
   cloudAuth,
   createLocalUser,
@@ -35,7 +35,7 @@ import {
   setUserActive,
   updateUser,
 } from '@/lib/auth'
-import { dateTime, relative } from '@/lib/format'
+import { relative } from '@/lib/format'
 import {
   CAPABILITIES,
   ROLE_DESCRIPTIONS,
@@ -256,27 +256,9 @@ export default function UsersPage() {
             subtitle="آخر ٦٠ عملية"
             icon={<History className="size-[18px]" />}
           />
-          {audit.length === 0 ? (
-            <EmptyState title="السجل فارغ" />
-          ) : (
-            <ul className="divide-y divide-border">
-              {audit.map((a) => (
-                <li key={a.id} className="flex items-center gap-3 px-4 py-2.5 text-[13px]">
-                  <span className="grid size-7 shrink-0 place-items-center rounded-full bg-surface-2 text-[11px] font-semibold">
-                    {a.userName.charAt(0)}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate">
-                      <span className="font-medium">{a.userName}</span>{' '}
-                      <span className="text-muted">{a.action}</span>
-                      {a.details && <span className="text-faint"> — {a.details}</span>}
-                    </p>
-                  </div>
-                  <span className="tnum shrink-0 text-[11px] text-faint">{dateTime(a.at)}</span>
-                </li>
-              ))}
-            </ul>
-          )}
+          <div className="px-4">
+            <AuditList entries={audit} />
+          </div>
         </Card>
       )}
 
