@@ -7,6 +7,7 @@ import { ToastProvider } from './components/ui'
 import { consumeRecoveryLink } from './lib/auth'
 import { configError } from './lib/supabase'
 import { ConfigError } from './components/ConfigError'
+import { installTapFeedback } from './lib/feedback'
 import './index.css'
 
 // يُبتلع رمز الاسترجاع من العنوان قبل تركيب الموجّه: Supabase تضعه في `hash`
@@ -15,6 +16,8 @@ import './index.css'
 // الابتلاع يجب ألّا يمنع التطبيق من الظهور أصلاً.
 // خطأ الإعداد يسبق كل شيء: بدون عميل قاعدة صالح يعلق التطبيق على شاشة التحميل
 // أو يتصرّف كأنه في وضع العرض ويحفظ بيانات المحل في المتصفح وحده.
+installTapFeedback()
+
 if (configError) {
   createRoot(document.getElementById('root')!).render(<ConfigError message={configError} />)
 } else

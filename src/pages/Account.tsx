@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
-import { AtSign, KeyRound, ShieldCheck, UserRound } from 'lucide-react'
-import { Badge, Button, Card, CardHeader, Field, Input, useToast } from '@/components/ui'
+import { AtSign, KeyRound, ShieldCheck, UserRound, Vibrate } from 'lucide-react'
+import { Badge, Button, Card, CardHeader, Field, Input, Switch, useToast } from '@/components/ui'
 import { cloudAuth, currentEmail, updateEmail, updatePassword } from '@/lib/auth'
 import { ROLE_LABELS } from '@/lib/permissions'
 import { useApp } from '@/store/app'
+import { getFeedbackPrefs, haptic, setFeedbackPrefs, tapSound } from '@/lib/feedback'
 
 /**
  * شاشة «حسابي»: كلمة المرور والبريد بيد صاحبهما وحده.
@@ -68,6 +69,8 @@ export default function Account() {
           البيانات.
         </p>
       )}
+
+      <FeedbackCard />
 
       <p className="flex items-start gap-2 rounded-xl border border-ok/30 bg-ok-soft/50 px-3 py-2.5 text-[12px] leading-5 text-muted">
         <ShieldCheck className="mt-0.5 size-4 shrink-0 text-ok" />
@@ -198,6 +201,50 @@ function EmailCard({ current }: { current: string | null }) {
           أرسل رابط التأكيد
         </Button>
       </form>
+    </Card>
+  )
+}
+
+/**
+ * الاهتزاز والصوت تفضيل لهذا الجهاز وحده (في ذاكرة المتصفح): صاحب المحل قد يريده
+ * في جواله ويطفئه الموظف في جوال الكاونتر. لذلك هنا لا في «الإعدادات» التي للمالك فقط.
+ */
+function FeedbackCard() {
+  const [prefs, setPrefs] = useState(getFeedbackPrefs)
+
+  const update = (patch: Partial<typeof prefs>) => {
+    const next = { ...prefs, ...patch }
+    setPrefs(next)
+    setFeedbackPrefs(next)
+    // معاينة فورية عند التشغيل: يعرف كيف يبدو قبل أن يقرّر.
+    if (patch.haptics) haptic()
+    if (patch.sound) tapSound()
+  }
+
+  return (
+    <Card>
+      <CardHeader
+        title="اللمس والصوت"
+        subtitle="عند الضغط على الأزرار والقوائم — لهذا الجهاز فقط"
+        icon={<Vibrate className="size-[18px]" />}
+      />
+      <div className="space-y-3 p-4">
+        {/* كل مفتاح في سطر: Switch عنصر سطري، ومتجاوران يلتصق اسم الأول بالثاني. */}
+        <div>
+          <Switch
+            checked={prefs.haptics}
+            onChange={(v) => update({ haptics: v })}
+            label="اهتزاز خفيف"
+          />
+        </div>
+        <div>
+          <Switch checked={prefs.sound} onChange={(v) => update({ sound: v })} label="صوت ناعم" />
+        </div>
+        <p className="text-[12px] leading-5 text-muted">
+          الصوت يتبع مفتاح الصامت في الجوال. والاهتزاز في الآيفون ميزة غير رسمية من النظام قد لا
+          تعمل في بعض الإصدارات — إن لم تشعر به فالسبب الجهاز لا الإعداد.
+        </p>
+      </div>
     </Card>
   )
 }
