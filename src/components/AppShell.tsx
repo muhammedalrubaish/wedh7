@@ -1,4 +1,5 @@
 import { Suspense, useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import {
@@ -24,7 +25,7 @@ import {
   Volume2,
   VolumeX,
 } from 'lucide-react'
-import { Badge, Button, Modal, cn } from './ui'
+import { Badge, Button, cn, lockScroll, unlockScroll } from './ui'
 import { DemoBanner } from './DemoBanner'
 import { BackupReminder } from './BackupReminder'
 import { AuditButton } from './AuditLog'
@@ -459,8 +460,9 @@ function NavSide({ items }: { items: BottomItem[] }) {
 }
 
 /**
- * زر في الشريط يفتح لوحة من الأسفل بشاشاته المجمّعة. يبدو «نشطاً» حين تكون الصفحة
- * الحالية إحدى شاشاته، كي لا يضيع المستخدم: فتح «المصروفات» يُبقي «فاتورة» مضاءً.
+ * زر في الشريط يفتح شاشاته المجمّعة بطاقاتٍ مكدّسة فوقه، تصعد واحدةً بعد الأخرى
+ * بطلب العميل. الأكثر استعمالاً (فاتورة بيع جديدة) أسفلها، أقرب ما يكون للإبهام.
+ * يبدو «نشطاً» حين تكون الصفحة الحالية إحدى شاشاته، كي لا يضيع المستخدم.
  */
 function NavGroup({
   label,
@@ -475,9 +477,32 @@ function NavGroup({
 }) {
   const location = useLocation()
   const [open, setOpen] = useState(false)
+  // الإغلاق بحركة عكسية قصيرة قبل الإزالة؛ أما اختيار بطاقة فيُغلق فوراً — الكاشير
+  // لا ينتظر حركة كي يصل للبيع.
+  const [closing, setClosing] = useState(false)
   const active = items.some((i) => location.pathname.startsWith(i.to))
 
   useEffect(() => setOpen(false), [location.pathname, location.search])
+
+  const close = () => {
+    setClosing(true)
+    window.setTimeout(() => {
+      setOpen(false)
+      setClosing(false)
+    }, 150)
+  }
+
+  useEffect(() => {
+    if (!open) return
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && close()
+    document.addEventListener('keydown', onKey)
+    // العدّاد المشترك مع `Modal` لا حفظ/استرجاع: الأخير أبقى الصفحة مقفلة سابقاً.
+    lockScroll()
+    return () => {
+      document.removeEventListener('keydown', onKey)
+      unlockScroll()
+    }
+  }, [open])
 
   return (
     <>
@@ -503,35 +528,60 @@ function NavGroup({
         <span className="max-w-full truncate px-0.5">{short}</span>
       </button>
 
-      <Modal open={open} onClose={() => setOpen(false)} title={label} size="sm">
-        <div className="grid grid-cols-2 gap-2.5">
-          {items.map(({ to, label: name, hint, icon: ItemIcon }) => (
-            <NavLink
-              key={to}
-              to={to}
-              // الإغلاق عند الضغط لا عند تغيّر الصفحة وحده: اختيار الصفحة المفتوحة نفسها
-              // (فاتورة بيع وأنت في البيع) لا يغيّر المسار فتبقى اللوحة مفتوحة.
-              onClick={() => setOpen(false)}
-              className={({ isActive }) =>
-                cn(
-                  'flex min-h-28 flex-col justify-between gap-3 rounded-2xl border p-3.5 transition-colors',
-                  isActive
-                    ? 'border-brand bg-brand-soft text-brand-strong'
-                    : 'border-border bg-surface hover:border-border-strong',
-                )
-              }
-            >
-              <span className="grid size-10 place-items-center rounded-xl bg-brand text-on-brand">
-                <ItemIcon className="size-5" />
-              </span>
-              <span>
-                <span className="block text-[14px] font-semibold">{name}</span>
-                <span className="block text-[12px] text-muted">{hint}</span>
-              </span>
-            </NavLink>
-          ))}
-        </div>
-      </Modal>
+      {/* بوابة لا ابن مباشر: الشريط `glass` بـ`backdrop-filter`، وهذا يجعل أي `fixed`
+          داخله يتموضع نسبةً للشريط لا للشاشة. */}
+      {open &&
+        createPortal(
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label={label}
+            className="fixed inset-0 z-50 lg:hidden"
+          >
+            <div
+              className={cn(
+                'absolute inset-0 bg-black/45 backdrop-blur-[3px]',
+                closing ? 'animate-undeal' : 'animate-fade',
+              )}
+              onClick={close}
+            />
+            <ul className="absolute inset-x-0 bottom-[calc(5rem+env(safe-area-inset-bottom))] mx-auto flex max-w-lg flex-col-reverse gap-2.5 px-4">
+              {items.map(({ to, label: name, hint, icon: ItemIcon }, i) => (
+                <li
+                  key={to}
+                  className={closing ? 'animate-undeal' : 'animate-deal'}
+                  // الأقرب للشريط يصعد أولاً، فتُقرأ الرزمة من مصدرها إلى أعلاها.
+                  style={{ animationDelay: closing ? '0ms' : `${i * 55}ms` }}
+                >
+                  <NavLink
+                    to={to}
+                    // الإغلاق عند الضغط لا عند تغيّر الصفحة وحده: اختيار الصفحة المفتوحة
+                    // نفسها (فاتورة بيع وأنت في البيع) لا يغيّر المسار فتبقى مفتوحة.
+                    onClick={() => setOpen(false)}
+                    className={({ isActive }) =>
+                      cn(
+                        'flex items-center gap-3 rounded-2xl border p-3 shadow-xl transition-transform active:scale-[0.98]',
+                        isActive
+                          ? 'border-brand bg-brand-soft text-brand-strong'
+                          : 'border-border bg-surface',
+                      )
+                    }
+                  >
+                    <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-brand text-on-brand">
+                      <ItemIcon className="size-5" />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-[15px] font-semibold">{name}</span>
+                      <span className="block text-[12px] text-muted">{hint}</span>
+                    </span>
+                    <ChevronLeft className="size-4 shrink-0 text-faint" />
+                  </NavLink>
+                </li>
+              ))}
+            </ul>
+          </div>,
+          document.body,
+        )}
     </>
   )
 }

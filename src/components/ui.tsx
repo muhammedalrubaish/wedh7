@@ -267,11 +267,11 @@ export function Switch({
  */
 let scrollLocks = 0
 
-function lockScroll() {
+export function lockScroll() {
   if (scrollLocks++ === 0) document.body.style.overflow = 'hidden'
 }
 
-function unlockScroll() {
+export function unlockScroll() {
   scrollLocks = Math.max(0, scrollLocks - 1)
   if (scrollLocks === 0) document.body.style.overflow = ''
 }
