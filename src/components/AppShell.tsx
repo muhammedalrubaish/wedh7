@@ -24,7 +24,7 @@ import {
   Volume2,
   VolumeX,
 } from 'lucide-react'
-import { Badge, Button, cn } from './ui'
+import { Badge, Button, Modal, cn } from './ui'
 import { DemoBanner } from './DemoBanner'
 import { BackupReminder } from './BackupReminder'
 import { AuditButton } from './AuditLog'
@@ -305,30 +305,61 @@ function Breadcrumb() {
  * والاسم الكامل في `aria-label`. ما لا يملك المستخدم صلاحيته لا يظهر — الموظف لا
  * يرى المشتريات ولا التوريد، كما في القائمة الجانبية.
  */
-const BOTTOM_NAV: Array<NavItem & { short: string }> = [
+type BottomItem = NavItem & {
+  short: string
+  /** زر يفتح لوحة اختيارات بدل أن ينتقل — تجميع شاشات متقاربة تحت أيقونة واحدة. */
+  group?: Array<NavItem & { hint: string }>
+}
+
+const BOTTOM_NAV: BottomItem[] = [
   { to: '/inventory', label: 'المنتجات', short: 'المنتجات', icon: Package, cap: 'inventory.view' },
-  {
-    to: '/bills',
-    label: 'المصروفات',
-    short: 'المصروفات',
-    icon: Receipt,
-    cap: 'purchase.view',
-  },
+  // العملاء في مكان «المصروفات» بعد دمجها تحت «فاتورة»: زران على كل جانب من «اللوحة».
+  { to: '/customers', label: 'العملاء', short: 'العملاء', icon: UsersRound, cap: 'sales.create' },
   { to: '/reports', label: 'التقارير', short: 'التقارير', icon: PieChart, cap: 'reports.view' },
-  // «فاتورة جديدة» مكان التوريد بطلب العميل: البيع أكثر ما يُفتح في اليوم، والتوريد
-  // نادر فبقي في القائمة الجانبية. زران على كل جانب من «اللوحة» فيتوازن الشريط.
+  // كل ما هو «فاتورة» تحت أيقونة واحدة بطلب العميل: البيع والمشتريات والمصروفات.
   {
     to: '/pos',
-    label: 'فاتورة جديدة',
+    label: 'الفواتير',
     short: 'فاتورة',
     icon: ShoppingCart,
-    cap: 'sales.create',
+    group: [
+      {
+        to: '/pos',
+        label: 'فاتورة بيع جديدة',
+        hint: 'لمحل أو زبون',
+        icon: ShoppingCart,
+        cap: 'sales.create',
+      },
+      {
+        to: '/invoices',
+        label: 'فواتير البيع',
+        hint: 'والمرتجعات والسداد',
+        icon: FileText,
+        cap: 'sales.create',
+      },
+      {
+        to: '/purchases',
+        label: 'المشتريات',
+        hint: 'طلبات التوريد والموردون',
+        icon: Truck,
+        cap: 'purchase.view',
+      },
+      {
+        to: '/bills',
+        label: 'المصروفات',
+        hint: 'ما يصرفه المعمل',
+        icon: Receipt,
+        cap: 'purchase.view',
+      },
+    ],
   },
 ]
 
 function BottomNav() {
   const { can } = useApp()
-  const items = BOTTOM_NAV.filter((i) => !i.cap || can(i.cap))
+  const items = BOTTOM_NAV.map((i) =>
+    i.group ? { ...i, group: i.group.filter((g) => !g.cap || can(g.cap)) } : i,
+  ).filter((i) => (i.group ? i.group.length > 0 : !i.cap || can(i.cap)))
   // نصفان متساويا العرض واللوحة بينهما: هكذا تقع في المنتصف تماماً مهما كان عدد
   // الأزرار على كل جانب (أربعة للمالك، اثنان للموظف). النصف الأول يمين في RTL.
   const half = Math.ceil(items.length / 2)
@@ -378,41 +409,120 @@ function BottomNav() {
   )
 }
 
-function NavSide({ items }: { items: typeof BOTTOM_NAV }) {
+function NavSide({ items }: { items: BottomItem[] }) {
   return (
     <ul
       className="grid flex-1"
       style={{ gridTemplateColumns: `repeat(${Math.max(items.length, 1)}, minmax(0, 1fr))` }}
     >
-      {items.map(({ to, label, short, icon: Icon }) => (
+      {items.map(({ to, label, short, icon: Icon, group }) => (
         <li key={to}>
-          <NavLink
-            to={to}
-            aria-label={label}
-            className={({ isActive }) =>
-              cn(
-                'flex h-16 flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors',
-                isActive ? 'text-brand-strong' : 'text-muted hover:text-text',
-              )
-            }
-          >
-            {({ isActive }) => (
-              <>
-                <span
-                  className={cn(
-                    'grid h-7 w-11 place-items-center rounded-full transition-colors',
-                    isActive && 'bg-brand-soft',
-                  )}
-                >
-                  <Icon className="size-[19px]" />
-                </span>
-                <span className="max-w-full truncate px-0.5">{short}</span>
-              </>
-            )}
-          </NavLink>
+          {group ? (
+            <NavGroup label={label} short={short} icon={Icon} items={group} />
+          ) : (
+            <NavLink
+              to={to}
+              aria-label={label}
+              className={({ isActive }) =>
+                cn(
+                  'flex h-16 flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors',
+                  isActive ? 'text-brand-strong' : 'text-muted hover:text-text',
+                )
+              }
+            >
+              {({ isActive }) => (
+                <>
+                  <span
+                    className={cn(
+                      'grid h-7 w-11 place-items-center rounded-full transition-colors',
+                      isActive && 'bg-brand-soft',
+                    )}
+                  >
+                    <Icon className="size-[19px]" />
+                  </span>
+                  <span className="max-w-full truncate px-0.5">{short}</span>
+                </>
+              )}
+            </NavLink>
+          )}
         </li>
       ))}
     </ul>
+  )
+}
+
+/**
+ * زر في الشريط يفتح لوحة من الأسفل بشاشاته المجمّعة. يبدو «نشطاً» حين تكون الصفحة
+ * الحالية إحدى شاشاته، كي لا يضيع المستخدم: فتح «المصروفات» يُبقي «فاتورة» مضاءً.
+ */
+function NavGroup({
+  label,
+  short,
+  icon: Icon,
+  items,
+}: {
+  label: string
+  short: string
+  icon: typeof Package
+  items: Array<NavItem & { hint: string }>
+}) {
+  const location = useLocation()
+  const [open, setOpen] = useState(false)
+  const active = items.some((i) => location.pathname.startsWith(i.to))
+
+  useEffect(() => setOpen(false), [location.pathname, location.search])
+
+  return (
+    <>
+      <button
+        type="button"
+        aria-label={label}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        onClick={() => setOpen(true)}
+        className={cn(
+          'flex h-16 w-full flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors',
+          active ? 'text-brand-strong' : 'text-muted hover:text-text',
+        )}
+      >
+        <span
+          className={cn(
+            'grid h-7 w-11 place-items-center rounded-full transition-colors',
+            active && 'bg-brand-soft',
+          )}
+        >
+          <Icon className="size-[19px]" />
+        </span>
+        <span className="max-w-full truncate px-0.5">{short}</span>
+      </button>
+
+      <Modal open={open} onClose={() => setOpen(false)} title={label} size="sm">
+        <div className="grid grid-cols-2 gap-2.5">
+          {items.map(({ to, label: name, hint, icon: ItemIcon }) => (
+            <NavLink
+              key={to}
+              to={to}
+              className={({ isActive }) =>
+                cn(
+                  'flex min-h-28 flex-col justify-between gap-3 rounded-2xl border p-3.5 transition-colors',
+                  isActive
+                    ? 'border-brand bg-brand-soft text-brand-strong'
+                    : 'border-border bg-surface hover:border-border-strong',
+                )
+              }
+            >
+              <span className="grid size-10 place-items-center rounded-xl bg-brand text-on-brand">
+                <ItemIcon className="size-5" />
+              </span>
+              <span>
+                <span className="block text-[14px] font-semibold">{name}</span>
+                <span className="block text-[12px] text-muted">{hint}</span>
+              </span>
+            </NavLink>
+          ))}
+        </div>
+      </Modal>
+    </>
   )
 }
 
