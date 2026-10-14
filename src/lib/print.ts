@@ -13,31 +13,54 @@ export function esc(s: string): string {
   )
 }
 
+/**
+ * الفاتورة بمقاس شاشة الجوال افتراضياً لا بشريط الطابعة الحرارية: أغلب الفواتير تُحفظ
+ * PDF من الجوال وتُرسل للمحل. Safari الآيفون يتجاهل `@page size` ويطبع على ورقة
+ * Letter كاملة، فكان شريط ٨٠مم يصغر في وسطها ويضيع.
+ *
+ * الحلّ وحدة `--u` = جزء من ٤٨٠ من عرض الصفحة: التصميم يتمدّد
+ * بالتناسب ليملأ أي ورقة يختارها المتصفح — ورقة Letter، أو A4، أو مقاس الجوال الذي
+ * يطلبه `@page` أدناه (يحترمه Chrome وأندرويد).
+ *
+ * ٤٨٠ لا ٣٦٠ (عرض الجوال): على ورقة Letter كانت فاتورة ببند واحد تنقسم على صفحتين
+ * فيقع رمز الضريبة وحده في الثانية. ٤٨٠ تُبقيها صفحة واحدة، ويبقى الخط عند فتح الـPDF
+ * على الجوال بعرض الشاشة نحو ١٢ بكسل — مقروءاً.
+ *
+ * `cqw` لا `vw`: `vw` في الطباعة يبقى عرض نافذة الشاشة في Chrome (جُرِّب: شريط في
+ * وسط الورقة)، أما `body` حاويةً فعرضها عرض الورقة نفسها عند التخطيط للطباعة.
+ */
 const STYLE = `
-  @page { size: 80mm auto; margin: 4mm; }
+  @page { size: 90mm 180mm; margin: 5mm; }
   * { box-sizing: border-box; }
-  body { font-family: "IBM Plex Sans Arabic", system-ui, sans-serif; margin: 0; color: #000; font-size: 12px; }
-  .wrap { width: 72mm; margin: 0 auto; }
+  body { font-family: "IBM Plex Sans Arabic", system-ui, sans-serif; margin: 0; color: #000; container-type: inline-size; }
+  .wrap { --u: calc(100cqw / 480); width: 100%; font-size: calc(var(--u) * 15); line-height: 1.45; padding: calc(var(--u) * 12) calc(var(--u) * 14); }
   header { text-align: center; }
-  h1 { font-size: 15px; margin: 0 0 2px; }
-  .muted { color: #555; font-size: 10px; margin: 1px 0; }
-  .tag { display: inline-block; border: 1px solid #999; border-radius: 4px; padding: 2px 8px; font-size: 10px; font-weight: 700; margin-top: 6px; }
-  .meta { display: flex; justify-content: space-between; font-size: 10px; border-top: 1px dashed #999; border-bottom: 1px dashed #999; padding: 4px 0; margin: 8px 0; }
+  h1 { font-size: calc(var(--u) * 20); margin: 0 0 calc(var(--u) * 2); }
+  .muted { color: #555; font-size: calc(var(--u) * 12.5); margin: calc(var(--u) * 1) 0; }
+  .tag { display: inline-block; border: 1px solid #999; border-radius: calc(var(--u) * 5); padding: calc(var(--u) * 2) calc(var(--u) * 10); font-size: calc(var(--u) * 12.5); font-weight: 700; margin-top: calc(var(--u) * 8); }
+  .meta { display: flex; justify-content: space-between; gap: calc(var(--u) * 8); font-size: calc(var(--u) * 12.5); border-top: 1px dashed #999; border-bottom: 1px dashed #999; padding: calc(var(--u) * 6) 0; margin: calc(var(--u) * 12) 0; }
   table { width: 100%; border-collapse: collapse; }
-  th { text-align: right; font-size: 10px; border-bottom: 1px solid #333; padding: 3px 0; }
-  td { padding: 4px 0; border-bottom: 1px dotted #ccc; vertical-align: top; }
-  .name { font-weight: 600; font-size: 11px; }
-  .sku { color: #666; font-size: 9px; }
+  th { text-align: right; font-size: calc(var(--u) * 12.5); border-bottom: 1px solid #333; padding: calc(var(--u) * 4) 0; }
+  td { padding: calc(var(--u) * 6) 0; border-bottom: 1px dotted #ccc; vertical-align: top; }
+  tr, .totals, .qr, .box { break-inside: avoid; }
+  th + th, td + td { padding-right: calc(var(--u) * 8); }
+  .name { font-weight: 600; font-size: calc(var(--u) * 14); }
+  .sku { color: #666; font-size: calc(var(--u) * 11.5); }
   .n { text-align: left; font-variant-numeric: tabular-nums; white-space: nowrap; }
-  .totals { margin-top: 8px; font-size: 11px; }
-  .totals div { display: flex; justify-content: space-between; padding: 1px 0; }
-  .grand { border-top: 1px solid #333; margin-top: 4px; padding-top: 4px !important; font-size: 13px; font-weight: 700; }
-  .qr { text-align: center; margin-top: 12px; }
-  .qr img { width: 100px; height: 100px; }
-  .foot { text-align: center; color: #666; font-size: 9px; margin-top: 10px; }
-  .refunded { border: 1px solid #c00; color: #c00; text-align: center; font-weight: 700; padding: 3px; margin-top: 8px; }
-  .box { border: 1px solid #999; border-radius: 4px; padding: 4px 6px; margin-top: 8px; font-size: 10px; }
-  .logo { display: block; width: 40mm; height: auto; margin: 0 auto 4px; }
+  .totals { margin-top: calc(var(--u) * 12); font-size: calc(var(--u) * 14); }
+  .totals div { display: flex; justify-content: space-between; gap: calc(var(--u) * 8); padding: calc(var(--u) * 2) 0; }
+  .grand { border-top: 1px solid #333; margin-top: calc(var(--u) * 6); padding-top: calc(var(--u) * 6) !important; font-size: calc(var(--u) * 18); font-weight: 700; }
+  /* الرمز بجانب المجاميع لا تحتها: تحتها كانت الفاتورة الضريبية تنقسم على صفحتين في
+     ورقة Letter فيقع الرمز وحده في الثانية. */
+  .sum { display: flex; align-items: flex-start; gap: calc(var(--u) * 16); break-inside: avoid; }
+  .sum .totals { flex: 1; min-width: 0; }
+  .qr { text-align: center; margin-top: calc(var(--u) * 12); flex-shrink: 0; }
+  .qr img { width: calc(var(--u) * 110); height: calc(var(--u) * 110); }
+  .qr .muted { margin-top: 0; }
+  .foot { text-align: center; color: #666; font-size: calc(var(--u) * 11.5); margin-top: calc(var(--u) * 14); }
+  .refunded { border: 1px solid #c00; color: #c00; text-align: center; font-weight: 700; padding: calc(var(--u) * 4); margin-top: calc(var(--u) * 10); }
+  .box { border: 1px solid #999; border-radius: calc(var(--u) * 5); padding: calc(var(--u) * 6) calc(var(--u) * 8); margin-top: calc(var(--u) * 12); font-size: calc(var(--u) * 12.5); }
+  .logo { display: block; width: 36%; height: auto; margin: 0 auto calc(var(--u) * 6); }
 `
 
 /**
@@ -149,16 +172,17 @@ export async function printInvoice(
 <div class="meta"><span>${esc(invoice.number)}</span><span>${esc(dateTime(invoice.createdAt))}</span></div>
 ${invoice.customerName ? `<p class="muted">العميل: ${esc(invoice.customerName)}${invoice.customerVatNumber ? ` — ${esc(invoice.customerVatNumber)}` : ''}</p>` : ''}
 <table><thead><tr><th>الصنف</th><th class="n">كمية</th><th class="n">السعر</th><th class="n">الإجمالي</th></tr></thead><tbody>${lines}</tbody></table>
-<div class="totals">
+<div class="sum"><div class="totals">
   <div><span>${taxable ? 'المجموع قبل الضريبة' : 'المجموع'}</span><span>${esc(money(invoice.subtotal - invoice.discount))}</span></div>
   ${invoice.discount > 0 ? `<div><span>الخصم</span><span>- ${esc(money(invoice.discount))}</span></div>` : ''}
   ${taxable ? `<div><span>${vatLabel}</span><span>${esc(money(invoice.vatAmount))}</span></div>` : ''}
   <div class="grand"><span>الإجمالي المستحق</span><span>${esc(money(invoice.total))}</span></div>
   <div><span>السداد</span><span>${paidLabel(invoice)}</span></div>
 </div>
+${qr ? `<div class="qr"><img src="${qr}" alt="ZATCA QR"><p class="muted">رمز الفاتورة الضريبية</p></div>` : ''}
+</div>
 ${invoice.notes ? `<p class="muted" style="white-space:pre-wrap;margin-top:6px">ملاحظة: ${esc(invoice.notes)}</p>` : ''}
 ${returnsBlock}
-${qr ? `<div class="qr"><img src="${qr}" alt="ZATCA QR"><p class="muted">رمز الفاتورة الضريبية</p></div>` : ''}
 ${invoice.status === 'refunded' ? '<p class="refunded">مسترجعة بالكامل</p>' : ''}
 <p class="foot">يُرجى حفظ الحلويات مبرّدة · المرتجع حسب الاتفاق مع المحل</p>
 </div></body></html>`
