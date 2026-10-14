@@ -57,6 +57,9 @@
   --panel: oklch(0.995 0.004 70 / 0.7);
   --panel-edge: oklch(1 0 0 / 0.6);
   --panel-blur: 14px;
+  /* شعار «وضح» خلف الصفحة: عنابي بشفافية ١٨٪. تحت البطاقات (شفافيتها ~٧٠٪) يصير
+     ~٥٪ — يُرى في الفراغات ولا يُقرأ فوقه رقم خطأ. */
+  --watermark: oklch(0.385 0.101 24 / 0.18);
 
   color-scheme: light;
 }
@@ -103,6 +106,7 @@
   --panel: oklch(0.225 0.028 22 / 0.68);
   --panel-edge: oklch(0.86 0.04 60 / 0.12);
   --panel-blur: 16px;
+  --watermark: oklch(0.786 0.059 51 / 0.16);
 
   color-scheme: dark;
 }
@@ -348,8 +352,25 @@
   }
 
   /* الطباعة لا تحتمل خلفية زخرفية: حبر مهدور وفاتورة أقل وضوحاً. */
+  /* ---------------------------------------------------------------------
+     شعار «وضح» فوق الغرفة لا بدلها: طبقة ثابتة بعدها في `index.html` فتُرسم فوقها
+     وتحت المحتوى. الصورة قناع شفافية لا صورة ملوّنة، واللون من الرمز --watermark:
+     فيتبع الفاتح والداكن بلا ملفّين، ولا يبدو الشعار العنابي ثقباً في الخلفية الداكنة.
+     القناع مستخرج من صورة الشعار التي أرسلها العميل (`public/brand-mark.png`).
+     --------------------------------------------------------------------- */
+  .brand-watermark {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background-color: var(--watermark);
+    -webkit-mask: url('/brand-mark.png') center 46% / min(90vw, 640px) auto no-repeat;
+    mask: url('/brand-mark.png') center 46% / min(90vw, 640px) auto no-repeat;
+  }
+
   @media print {
-    .room {
+    .room,
+    .brand-watermark {
       display: none;
     }
   }
