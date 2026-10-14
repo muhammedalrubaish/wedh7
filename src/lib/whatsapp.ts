@@ -8,6 +8,7 @@
  * نصّ لا صورة: الرابط لا يحمل مرفقات. والنصّ يحوي كل ما يحتاجه الزبون ليراجع
  * ورقته (الرقم والبنود والمبلغ)، وهو ما يُبحث عنه في المحادثة بعد شهر.
  */
+import { invoiceFigures } from './invoiceFigures'
 import { date, money, num } from './format'
 import type { Customer, Invoice, ReturnNote, Settings } from './types'
 
@@ -33,6 +34,7 @@ export function waLink(phone: string | undefined, text: string): string {
 }
 
 export function invoiceMessage(invoice: Invoice, settings: Settings): string {
+  const figures = invoiceFigures(invoice)
   const lines = invoice.lines.map((l) => {
     const free = l.freeQty ? ` (+${num(l.freeQty)} عينة)` : ''
     return `• ${l.name} × ${num(l.qty)}${free} = ${money(l.unitPrice * l.qty - l.discount)}`
@@ -44,7 +46,8 @@ export function invoiceMessage(invoice: Invoice, settings: Settings): string {
     '',
     ...lines,
     '',
-    invoice.discount > 0 ? `خصم: ${money(invoice.discount)}` : '',
+    // خصم الفاتورة وحده: خصم البند ظاهر في سطره أعلاه — انظر `invoiceFigures`.
+    figures.discount > 0 ? `خصم: ${money(figures.discount)}` : '',
     invoice.vatAmount > 0 ? `الضريبة: ${money(invoice.vatAmount)}` : '',
     `✅ الإجمالي: ${money(invoice.total)}`,
     invoice.status === 'unpaid' ? '⏳ لم يتم السداد بعد' : '',

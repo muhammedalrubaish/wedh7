@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react'
-import { FileText, MessageCircle, Printer, RotateCcw, Search, Undo2 } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { Download, FileText, MessageCircle, Printer, RotateCcw, Search, Undo2 } from 'lucide-react'
 import {
   Badge,
   Button,
@@ -23,7 +23,8 @@ import { Stat } from '@/components/Stat'
 import { db } from '@/lib/db'
 import { audit, buildReturn, createReturn, refundInvoice, setInvoicePaid } from '@/lib/repo'
 import { daysAgo, dateTime, endOfDay, money, num } from '@/lib/format'
-import { printInvoice, printReturn } from '@/lib/print'
+import { printReturn } from '@/lib/print'
+import { invoicePdf } from '@/lib/invoicePdf'
 import { returnedByPart, summarize } from '@/lib/analytics'
 import { invoiceMessage, returnMessage, waLink } from '@/lib/whatsapp'
 import { useApp } from '@/store/app'
@@ -58,6 +59,10 @@ export default function Invoices() {
   const debounced = useDebounced(query)
   const [seller, setSeller] = useState('all')
   const [open, setOpen] = useState<Invoice | null>(null)
+  // ملف الفاتورة يُجهَّز لحظة فتحها لا عند الضغط: Safari يسمح بنافذة المشاركة داخل
+  // الضغطة نفسها فقط، وتجهيز الملف يستغرق لحظة تُفقدها إن جاء بعد الضغط.
+  const [pdf, setPdf] = useState<{ id: string; file: File } | null>(null)
+  const [pdfError, setPdfError] = useState(false)
   const [openReturn, setOpenReturn] = useState<ReturnNote | null>(null)
   const [refunding, setRefunding] = useState<Invoice | null>(null)
   const [returning, setReturning] = useState<Invoice | null>(null)
@@ -117,6 +122,62 @@ export default function Invoices() {
       setRefunding(null)
       setOpen(null)
     }
+  }
+
+  useEffect(() => {
+    if (!open) return
+    let live = true
+    setPdf(null)
+    setPdfError(false)
+    invoicePdf(open, settings, returnsByInvoice.get(open.id))
+      .then((file) => live && setPdf({ id: open.id, file }))
+      .catch((err) => {
+        console.error('تعذّر تجهيز ملف الفاتورة:', err)
+        if (live) setPdfError(true)
+      })
+    return () => {
+      live = false
+    }
+    // `returnsByInvoice` و`settings` يتغيّران بكل سحب للمرآة؛ الملف يُعاد عند فتح فاتورة
+    // أخرى أو تغيّر مرتجعاتها فقط.
+  }, [open?.id, open?.status, returnsByInvoice.get(open?.id ?? '')?.length])
+
+  const readyPdf = pdf && open && pdf.id === open.id ? pdf.file : null
+
+  /**
+   * واتساب = نافذة المشاركة بملف الـPDF: يختار المستخدم واتساب والمحل منها. رابط
+   * `wa.me` لا يحمل ملفاً، فيبقى بديلاً حين لا يدعم الجهاز مشاركة الملفات (الكمبيوتر):
+   * يُحفظ الملف ويُفتح واتساب بنصّ الفاتورة ليُرفق يدوياً.
+   */
+  async function shareInvoice(inv: Invoice) {
+    const file = readyPdf
+    if (file && navigator.canShare?.({ files: [file] })) {
+      try {
+        await navigator.share({ files: [file], title: file.name })
+      } catch (err) {
+        // إلغاء المستخدم ليس خطأً
+        if ((err as Error).name !== 'AbortError') {
+          toast('تعذّرت المشاركة — جرّب «حفظ» ثم أرسل الملف من واتساب.', 'warn')
+        }
+      }
+      return
+    }
+    if (file) saveInvoice()
+    window.open(waLink(phoneOf(inv.customerId), invoiceMessage(inv, settings)), '_blank')
+  }
+
+  /** حفظ في ملفات الجوال: تنزيل الملف — Safari يعرض «تنزيل» ثم يحفظه في «الملفات». */
+  function saveInvoice() {
+    if (!readyPdf) return
+    const url = URL.createObjectURL(readyPdf)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = readyPdf.name
+    // في الصفحة لا معلّقاً: بعض المتصفحات تتجاهل اسم `download` لرابط خارج المستند
+    document.body.append(a)
+    a.click()
+    a.remove()
+    setTimeout(() => URL.revokeObjectURL(url), 10_000)
   }
 
   return (
@@ -333,42 +394,56 @@ export default function Invoices() {
         title={open?.number ?? ''}
         subtitle={open && dateTime(open.createdAt)}
         footer={
-          <>
+          // زرّان في كل صف على الجوال: أربعة متجاورة كانت تتجاوز ٣٩٠ بكسل فيُقصّ «مرتجع».
+          // الإرسال والحفظ أولاً (الصف الأعلى) — هما الاستعمال اليومي، والمرتجع استثناء.
+          <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:items-center">
+            {open && (
+              <>
+                <Button
+                  variant="soft"
+                  className="w-full sm:order-3 sm:w-auto"
+                  loading={!readyPdf && !pdfError}
+                  onClick={() => shareInvoice(open)}
+                >
+                  <MessageCircle className="size-4" />
+                  واتساب
+                </Button>
+                <Button
+                  variant="primary"
+                  className="w-full sm:order-4 sm:w-auto"
+                  loading={!readyPdf && !pdfError}
+                  disabled={pdfError}
+                  onClick={saveInvoice}
+                >
+                  <Download className="size-4" />
+                  حفظ
+                </Button>
+              </>
+            )}
+            <span className="hidden flex-1 sm:order-2 sm:block" />
             {open && open.status !== 'refunded' && can('sales.refund') && (
               <>
-                <Button variant="secondary" onClick={() => setReturning(open)}>
+                <Button
+                  variant="secondary"
+                  className="w-full sm:order-1 sm:w-auto"
+                  onClick={() => setReturning(open)}
+                >
                   <Undo2 className="size-4" />
                   مرتجع
                 </Button>
                 {(returnsByInvoice.get(open.id) ?? []).length === 0 && (
-                  <Button variant="danger" onClick={() => setRefunding(open)}>
+                  <Button
+                    variant="danger"
+                    className="w-full sm:order-1 sm:w-auto"
+                    onClick={() => setRefunding(open)}
+                  >
                     <RotateCcw className="size-4" />
                     استرجاع كامل
                   </Button>
                 )}
               </>
             )}
-            <span className="flex-1" />
-            {open && (
-              <a
-                href={waLink(phoneOf(open.customerId), invoiceMessage(open, settings))}
-                target="_blank"
-                rel="noreferrer"
-              >
-                <Button variant="soft">
-                  <MessageCircle className="size-4" />
-                  واتساب
-                </Button>
-              </a>
-            )}
-            <Button
-              variant="primary"
-              onClick={() => open && printInvoice(open, settings, returnsByInvoice.get(open.id))}
-            >
-              <Printer className="size-4" />
-              طباعة
-            </Button>
-          </>
+          </div>
         }
       >
         {open && (

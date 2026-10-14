@@ -1,3 +1,4 @@
+import { invoiceFigures } from './invoiceFigures'
 import QRCode from 'qrcode'
 import { dateTime, money } from './format'
 import { zatcaQrPayload } from './zatca'
@@ -180,6 +181,7 @@ export async function printInvoice(
 ): Promise<void> {
   // «فاتورة ضريبية» وصف قانوني: الحكم من الفاتورة نفسها لا من الإعدادات الحالية.
   const taxable = invoice.vatAmount > 0
+  const fig = invoiceFigures(invoice)
 
   const rates = [...new Set(invoice.lines.map((l) => l.taxRate).filter((r) => r > 0))]
   const vatLabel =
@@ -207,7 +209,8 @@ export async function printInvoice(
       (l) => `<tr>
         <td>
           <div class="name">${esc(l.name)}</div>
-          <div class="sku">${esc(l.sku)}${l.freeQty ? ` · +${l.freeQty} عينة بلا مقابل` : ''}</div>
+          <div class="sku">${esc(l.sku)}</div>
+          ${l.freeQty ? `<div class="sku">+ ${l.freeQty} عينة بلا مقابل</div>` : ''}
         </td>
         <td class="n">${l.qty}</td>
         <td class="n">${l.unitPrice.toFixed(2)}</td>
@@ -245,8 +248,9 @@ export async function printInvoice(
 ${invoice.customerName ? `<p class="muted">العميل: ${esc(invoice.customerName)}${invoice.customerVatNumber ? ` — ${esc(invoice.customerVatNumber)}` : ''}</p>` : ''}
 <table><thead><tr><th>الصنف</th><th class="n">كمية</th><th class="n">السعر</th><th class="n">الإجمالي</th></tr></thead><tbody>${lines}</tbody></table>
 <div class="sum"><div class="totals">
-  <div><span>${taxable ? 'المجموع قبل الضريبة' : 'المجموع'}</span><span>${esc(money(invoice.subtotal - invoice.discount))}</span></div>
-  ${invoice.discount > 0 ? `<div><span>الخصم</span><span>- ${esc(money(invoice.discount))}</span></div>` : ''}
+  <div><span>${fig.itemsLabel}</span><span>${esc(money(fig.itemsTotal))}</span></div>
+  ${fig.discount > 0 ? `<div><span>الخصم</span><span>- ${esc(money(fig.discount))}</span></div>` : ''}
+  ${fig.showNet ? `<div><span>الصافي قبل الضريبة</span><span>${esc(money(fig.net))}</span></div>` : ''}
   ${taxable ? `<div><span>${vatLabel}</span><span>${esc(money(invoice.vatAmount))}</span></div>` : ''}
   <div class="grand"><span>الإجمالي المستحق</span><span>${esc(money(invoice.total))}</span></div>
   <div><span>السداد</span><span>${paidLabel(invoice)}</span></div>

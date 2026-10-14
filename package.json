@@ -8,7 +8,7 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "typecheck": "tsc -b --noEmit",
-    "test:rows": "node scripts/test-rows.mjs && node scripts/test-paging.mjs && node scripts/test-backup-reminder.mjs"
+    "test:rows": "node scripts/test-rows.mjs && node scripts/test-paging.mjs && node scripts/test-backup-reminder.mjs && node scripts/test-invoice-figures.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.115.0",

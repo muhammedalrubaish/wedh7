@@ -167,6 +167,8 @@ src/lib/types.ts       نماذج المجال — تنطبق ١:١ على جد�
 src/lib/analytics.ts   الملخصات، حسب العميل، العينات، المرتجعات، تنبيه الإنتاج
 src/lib/whatsapp.ts    نصوص واتساب وروابط wa.me
 src/lib/printReport.ts طباعة التقرير التفصيلي (A4) — الفاتورة الحرارية في print.ts
+src/lib/invoicePdf.ts  الفاتورة PDF بمقاس الجوال (canvas ثم PDF يدوي) — واتساب وحفظ في الجوال
+src/lib/invoiceFigures.ts أرقام أسفل الفاتورة: كل خصم يُطرح مرة واحدة (المعاينة والطباعة وواتساب)
 src/lib/accountant.ts  اللقطة المالية + التحليل المحلي + نداء المزوّد
 src/lib/permissions.ts مصفوفة الأدوار (نسخة الواجهة)
 src/components/ui.tsx  نظام التصميم كاملاً

@@ -1,6 +1,7 @@
 import { QrCanvas } from './Barcode'
 import { dateTime, money, num } from '@/lib/format'
 import { zatcaQrPayload } from '@/lib/zatca'
+import { invoiceFigures } from '@/lib/invoiceFigures'
 import type { Invoice, ReturnNote, Settings } from '@/lib/types'
 
 /** ما يهمّ المحل على فاتورته: هل دفع أم لا — لا وسيلة الدفع. */
@@ -42,6 +43,7 @@ export function InvoiceDoc({
         })
       : null
 
+  const fig = invoiceFigures(invoice)
   const freeTotal = invoice.lines.reduce((n, l) => n + l.freeQty, 0)
   const returnedTotal = returns.reduce((n, r) => n + r.total, 0)
 
@@ -106,11 +108,9 @@ export function InvoiceDoc({
       </table>
 
       <div className="tnum mt-3 space-y-1">
-        <Row
-          label={taxable ? 'المجموع قبل الضريبة' : 'المجموع'}
-          value={money(invoice.subtotal - invoice.discount)}
-        />
-        {invoice.discount > 0 && <Row label="الخصم" value={`- ${money(invoice.discount)}`} />}
+        <Row label={fig.itemsLabel} value={money(fig.itemsTotal)} />
+        {fig.discount > 0 && <Row label="الخصم" value={`- ${money(fig.discount)}`} />}
+        {fig.showNet && <Row label="الصافي قبل الضريبة" value={money(fig.net)} />}
         {taxable && (
           <Row
             label={
