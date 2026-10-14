@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { CheckCircle2, PackageCheck, Plus, Sparkles, Truck, X } from 'lucide-react'
+import { CheckCircle2, PackageCheck, Plus, Truck, X } from 'lucide-react'
 import {
   Badge,
   Button,
@@ -44,8 +44,7 @@ const STATUS_TONE: Record<PurchaseOrderStatus, 'neutral' | 'brand' | 'warn' | 'o
 }
 
 export default function Purchases() {
-  const { user, can } = useApp()
-  const toast = useToast()
+  const { can } = useApp()
 
   const orders = usePurchaseOrders()
   const parts = useActiveParts()
@@ -78,40 +77,6 @@ export default function Purchases() {
 
   const orderTotal = (o: PurchaseOrder) => o.lines.reduce((n, l) => n + l.qty * l.unitCost, 0)
 
-  /** Groups everything below its reorder point into one draft PO per supplier. */
-  async function createSuggested() {
-    if (!user) return
-    const bySupplier = new Map<string, typeof suggestions>()
-    for (const s of suggestions) {
-      const key = s.part.supplierId ?? 'none'
-      bySupplier.set(key, [...(bySupplier.get(key) ?? []), s])
-    }
-    if (bySupplier.size === 0) {
-      toast('ما فيه أصناف تحت حدّ التنبيه', 'info')
-      return
-    }
-    let created = 0
-    for (const [supplierId, items] of bySupplier) {
-      if (supplierId === 'none') continue
-      await createPurchaseOrder({
-        supplierId,
-        status: 'draft',
-        lines: items.map((s) => ({
-          partId: s.part.id,
-          qty: s.suggestedQty,
-          unitCost: s.part.cost,
-          receivedQty: 0,
-        })),
-        createdAt: Date.now(),
-        createdBy: user.id,
-        notes: 'مولّد تلقائياً من تنبيه الإنتاج',
-      })
-      created++
-    }
-    await audit(user, 'توليد طلبات توريد', 'purchaseOrder', undefined, `${created} طلب`)
-    toast(`تم إنشاء ${created} طلب توريد كمسودة`)
-  }
-
   return (
     <div className="space-y-4">
       <div>
@@ -123,8 +88,8 @@ export default function Purchases() {
         </p>
       </div>
 
-      {/* الحالات والزرّان في سطر واحد بطلب العميل. على الجوال لا يتسع الزرّان بنصّهما
-          بجانب خمس حالات، فيصيران أيقونتين والاسم في `aria-label`؛ ويعود النص من sm. */}
+      {/* الحالات و«طلب جديد» في سطر واحد بطلب العميل. على الجوال لا يتسع الزر بنصّه
+          بجانب خمس حالات، فيصير أيقونة والاسم في `aria-label`؛ ويعود النص من sm. */}
       <div className="flex items-center gap-1.5 sm:gap-2">
         <Tabs
           value={filter}
@@ -138,30 +103,19 @@ export default function Purchases() {
             { value: 'all', label: 'الكل' },
           ]}
         />
+        {/* «طلب مقترح» أُخفي بطلب العميل: أيقونته وحدها لا تقول ما تفعل. التنبيه نفسه
+            باقٍ في اللوحة وفي سطر «صنف تحت حدّ التنبيه» أعلاه. */}
         {can('purchase.edit') && (
-          <>
-            <Button
-              variant="soft"
-              className="shrink-0 max-sm:w-9 max-sm:px-0 max-sm:h-9 max-sm:justify-center sm:ms-auto"
-              onClick={createSuggested}
-              disabled={suggestions.length === 0}
-              aria-label="طلب مقترح"
-              title="طلب مقترح من الأصناف تحت حدّ التنبيه"
-            >
-              <Sparkles className="size-4" />
-              <span className="hidden sm:inline">طلب مقترح</span>
-            </Button>
-            <Button
-              variant="primary"
-              className="shrink-0 max-sm:w-9 max-sm:px-0 max-sm:h-9 max-sm:justify-center"
-              onClick={() => setCreating(true)}
-              aria-label="طلب جديد"
-              title="طلب جديد"
-            >
-              <Plus className="size-4" />
-              <span className="hidden sm:inline">طلب جديد</span>
-            </Button>
-          </>
+          <Button
+            variant="primary"
+            className="shrink-0 max-sm:h-9 max-sm:w-9 max-sm:justify-center max-sm:px-0 sm:ms-auto"
+            onClick={() => setCreating(true)}
+            aria-label="طلب جديد"
+            title="طلب جديد"
+          >
+            <Plus className="size-4" />
+            <span className="hidden sm:inline">طلب جديد</span>
+          </Button>
         )}
       </div>
 
