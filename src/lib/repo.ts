@@ -12,6 +12,7 @@
  * والبيع يتوقّف بلا إنترنت عمداً: بوكس واحد يُباع من جهازين في آنٍ واحد
  * أغلى من دقائق انقطاع.
  */
+import { legacyKeysOf } from './expenseGroups'
 import {
   applyMovement as applyMovementLocal,
   db,
@@ -765,12 +766,14 @@ export async function createPurchaseItem(
   const item: PurchaseItem = {
     ...draft,
     name: draft.name.trim(),
+    kind: draft.kind.trim(),
     unit: draft.unit.trim() || 'حبة',
     id: uid('pi_'),
     archived: false,
     createdAt: Date.now(),
   }
-  if (!item.name) throw new Error('اكتب اسم الصنف.')
+  if (!item.name) throw new Error('اكتب اسم البند الفرعي.')
+  if (!item.kind) throw new Error('اختر البند الرئيسي أو اكتب اسماً جديداً.')
   const all = await db.purchaseItems.toArray()
   // الخادم يرفض التكرار بفهرس فريد، لكن رسالته عامة؛ هنا تُسمّى المشكلة باسمها.
   if (all.some((x) => x.name.trim().toLowerCase() === item.name.toLowerCase())) {
@@ -790,7 +793,7 @@ export async function updatePurchaseItem(id: string, patch: Partial<PurchaseItem
     guardOnline()
     const row: Record<string, unknown> = {}
     if (patch.name !== undefined) row.name = patch.name.trim()
-    if (patch.kind !== undefined) row.kind = patch.kind
+    if (patch.kind !== undefined) row.kind = patch.kind.trim()
     if (patch.unit !== undefined) row.unit = patch.unit.trim()
     if (patch.notes !== undefined) row.notes = patch.notes || null
     if (patch.archived !== undefined) row.archived = patch.archived
@@ -798,6 +801,28 @@ export async function updatePurchaseItem(id: string, patch: Partial<PurchaseItem
     if (error) fail(error)
   }
   await db.purchaseItems.update(id, patch)
+}
+
+/**
+ * إعادة تسمية بند رئيسي = تغيير `kind` على كل أصنافه. الفواتير السابقة لا تتغيّر:
+ * بنودها لقطة وقت الشراء، فتبقى باسمها القديم في تقارير أشهرها.
+ *
+ * المفاتيح القديمة (`expense`…) تُشمل: مرآة لم تُسحب بعد الترحيل قد تحملها.
+ */
+export async function renamePurchaseGroup(from: string, to: string): Promise<void> {
+  const name = to.trim()
+  if (!name) throw new Error('اكتب اسم البند الرئيسي.')
+  if (name === from) return
+  const variants = [from, ...legacyKeysOf(from)]
+  if (cloudEnabled) {
+    guardOnline()
+    const { error } = await requireClient()
+      .from('purchase_items')
+      .update({ kind: name })
+      .in('kind', variants)
+    if (error) fail(error)
+  }
+  await db.purchaseItems.where('kind').anyOf(variants).modify({ kind: name })
 }
 
 export interface PurchaseBillInput {

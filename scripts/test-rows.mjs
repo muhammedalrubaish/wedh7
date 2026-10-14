@@ -339,6 +339,20 @@ ok(
   ok(row.category_id === null, "category_id = '' ← null")
 }
 
+// ---- 5-ج) البند الرئيسي للمصروف: المفاتيح القديمة تُقرأ بأسمائها، والاسم الحرّ كما هو ----
+ok(
+  R.toPurchaseItem({ id: 'i', name: 'إيجار', kind: 'expense' }).kind === 'مصاريف',
+  'kind=expense ← مصاريف',
+)
+ok(
+  R.toPurchaseItem({ id: 'i', name: 'فرن', kind: 'equipment' }).kind === 'أخرى',
+  'kind=equipment ← أخرى',
+)
+ok(
+  R.toPurchaseItem({ id: 'i', name: 'راتب', kind: ' التشغيلية ' }).kind === 'التشغيلية',
+  'بند رئيسي حرّ يُقرأ كما هو بلا مسافات طرفية',
+)
+
 // ---- 6) الإعدادات: vat_enabled الغائب يعني مفعّلة ----
 ok(
   R.toSettings({ shop_name: 'وضح' }, { id: 'app', theme: 'dark', aiApiKey: 'k', invoiceCounter: 9 })

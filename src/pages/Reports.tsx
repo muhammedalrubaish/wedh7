@@ -33,8 +33,6 @@ import {
   changePercent,
   dailySeries,
   deadStock,
-  PURCHASE_KINDS,
-  PURCHASE_KIND_LABELS,
   purchasesSummary,
   summarize,
   topParts,
@@ -438,9 +436,9 @@ export default function Reports() {
             </div>
           </div>
           <div className="mt-3 flex flex-wrap gap-1.5 border-t border-border pt-3">
-            {PURCHASE_KINDS.filter((k) => spend.byKind[k] > 0).map((k) => (
-              <Badge key={k} tone="neutral">
-                {PURCHASE_KIND_LABELS[k]} <span className="tnum">{money(spend.byKind[k])}</span>
+            {spend.byKind.map((g) => (
+              <Badge key={g.kind} tone="neutral">
+                {g.kind} <span className="tnum">{money(g.total)}</span>
               </Badge>
             ))}
           </div>

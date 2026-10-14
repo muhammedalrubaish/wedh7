@@ -45,14 +45,14 @@ const SUPPLIERS: Array<Omit<Supplier, 'id'>> = [
 
 /** أصناف المشتريات بأسعار تقريبية للسوق: [الاسم، النوع، الوحدة، السعر] */
 const PURCHASE_ITEMS: Array<[string, PurchaseItem['kind'], string, number]> = [
-  ['قشطة', 'ingredient', 'علبة', 6.5],
-  ['زبدة', 'ingredient', 'كيلو', 32],
-  ['جبن كريمي', 'ingredient', 'كيلو', 28],
-  ['كريمة خفق', 'ingredient', 'لتر', 18],
-  ['بسكويت', 'ingredient', 'كرتون', 45],
-  ['سكر', 'ingredient', 'كيس ١٠ كيلو', 38],
-  ['كرتون بوكس', 'packaging', 'حزمة ٥٠', 120],
-  ['ملصقات الشعار', 'packaging', 'رول', 60],
+  ['قشطة', 'مكونات', 'علبة', 6.5],
+  ['زبدة', 'مكونات', 'كيلو', 32],
+  ['جبن كريمي', 'مكونات', 'كيلو', 28],
+  ['كريمة خفق', 'مكونات', 'لتر', 18],
+  ['بسكويت', 'مكونات', 'كرتون', 45],
+  ['سكر', 'مكونات', 'كيس ١٠ كيلو', 38],
+  ['كرتون بوكس', 'تغليف', 'حزمة ٥٠', 120],
+  ['ملصقات الشعار', 'تغليف', 'رول', 60],
 ]
 
 interface ProductSpec {
@@ -458,18 +458,25 @@ export async function seed(): Promise<void> {
     createdAt: now - 70 * 86_400_000,
   }))
   purchaseItems.push(
-    {
-      id: 'pi_rent',
-      name: 'إيجار المعمل',
-      kind: 'expense',
+    // «التشغيلية» مثال العميل نفسه: بند رئيسي تحته الإيجار والراتب والكهرباء.
+    ...(
+      [
+        ['pi_rent', 'إيجار المعمل'],
+        ['pi_salary', 'راتب العامل'],
+        ['pi_power', 'الكهرباء'],
+      ] as const
+    ).map(([id, name]) => ({
+      id,
+      name,
+      kind: 'التشغيلية',
       unit: 'شهر',
       archived: false,
       createdAt: now - 70 * 86_400_000,
-    },
+    })),
     {
       id: 'pi_oven',
       name: 'فرن كهربائي',
-      kind: 'equipment',
+      kind: 'أخرى',
       unit: 'حبة',
       archived: false,
       createdAt: now - 70 * 86_400_000,
@@ -518,18 +525,22 @@ export async function seed(): Promise<void> {
     purchaseBills.push({
       id: `pb_rent${m}`,
       purchasedAt: at,
-      notes: 'إيجار الشهر',
-      lines: [
-        {
-          itemId: 'pi_rent',
-          name: 'إيجار المعمل',
-          kind: 'expense',
-          unit: 'شهر',
-          qty: 1,
-          unitPrice: 3500,
-        },
-      ],
-      total: 3500,
+      notes: 'مصاريف الشهر التشغيلية',
+      lines: (
+        [
+          ['pi_rent', 'إيجار المعمل', 3500],
+          ['pi_salary', 'راتب العامل', 2500],
+          ['pi_power', 'الكهرباء', 420],
+        ] as const
+      ).map(([itemId, name, unitPrice]) => ({
+        itemId,
+        name,
+        kind: 'التشغيلية',
+        unit: 'شهر',
+        qty: 1,
+        unitPrice,
+      })),
+      total: 6420,
       createdAt: at,
     })
   }
@@ -542,7 +553,7 @@ export async function seed(): Promise<void> {
       {
         itemId: 'pi_oven',
         name: 'فرن كهربائي',
-        kind: 'equipment',
+        kind: 'أخرى',
         unit: 'حبة',
         qty: 1,
         unitPrice: 4200,

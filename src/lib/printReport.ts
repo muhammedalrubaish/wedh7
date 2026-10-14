@@ -1,6 +1,5 @@
 import { date, dateTime, money, num } from './format'
 import { esc, openAndPrint } from './print'
-import { PURCHASE_KINDS, PURCHASE_KIND_LABELS } from './analytics'
 import type {
   CustomerPerformance,
   PartPerformance,
@@ -170,18 +169,15 @@ export function printReport(data: ReportPrintData, settings: Settings): boolean 
   )
 
   const spend = data.spend
-    ? `<h2>المصروفات حسب النوع</h2>${table(
-        [['النوع'], ['المبلغ', true]],
-        PURCHASE_KINDS.filter((k) => data.spend!.byKind[k] > 0).map((k) => [
-          esc(PURCHASE_KIND_LABELS[k]),
-          m(data.spend!.byKind[k]),
-        ]),
+    ? `<h2>المصروفات حسب البند الرئيسي</h2>${table(
+        [['البند الرئيسي'], ['المبلغ', true]],
+        data.spend.byKind.map((g) => [esc(g.kind), m(g.total)]),
         ['الإجمالي', m(data.spend.total)],
-      )}<h2>المصروفات حسب الصنف</h2>${table(
-        [['الصنف'], ['النوع'], ['الكمية', true], ['المبلغ', true]],
+      )}<h2>المصروفات حسب البند الفرعي</h2>${table(
+        [['البند الفرعي'], ['البند الرئيسي'], ['الكمية', true], ['المبلغ', true]],
         data.spend.items.map((i) => [
           esc(i.name),
-          esc(PURCHASE_KIND_LABELS[i.kind]),
+          esc(i.kind),
           `${esc(num(i.qty, 2))} ${esc(i.unit)}`,
           m(i.total),
         ]),

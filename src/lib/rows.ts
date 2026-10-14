@@ -13,6 +13,7 @@
  * المناظر، لا صفراً. الفرق جوهري: صفر يعني «تكلفتها صفر» ويُفسد حساب الهامش،
  * و`undefined` يعني «ما لك صلاحية تشوفها» وتعرف الواجهة أن تخفي العمود.
  */
+import { groupName } from './expenseGroups'
 import type {
   AuditEntry,
   Category,
@@ -23,7 +24,6 @@ import type {
   PurchaseBill,
   PurchaseBillLine,
   PurchaseItem,
-  PurchaseKind,
   PurchaseOrder,
   PurchaseOrderLine,
   ReturnLine,
@@ -128,7 +128,7 @@ export const fromSupplier = (v: Supplier): Row => ({
 export const toPurchaseItem = (r: Row): PurchaseItem => ({
   id: s(r.id),
   name: s(r.name),
-  kind: s(r.kind) as PurchaseKind,
+  kind: groupName(s(r.kind)),
   unit: s(r.unit),
   notes: os(r.notes),
   archived: b(r.archived),
@@ -147,7 +147,7 @@ export const fromPurchaseItem = (v: PurchaseItem): Row => ({
 export const toPurchaseBillLine = (r: Row): PurchaseBillLine => ({
   itemId: os(r.item_id),
   name: s(r.name),
-  kind: s(r.kind) as PurchaseKind,
+  kind: groupName(s(r.kind)),
   unit: s(r.unit),
   qty: n(r.qty),
   unitPrice: n(r.unit_price),

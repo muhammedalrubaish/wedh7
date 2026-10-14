@@ -1,3 +1,4 @@
+import { groupName } from './expenseGroups'
 import { dayKey, round2, startOfDay } from './format'
 import type {
   Invoice,
@@ -420,26 +421,11 @@ export function changePercent(current: number, previous: number): number | null 
 /* المشتريات                                                                   */
 /* -------------------------------------------------------------------------- */
 
-/**
- * الترتيب هنا ترتيب العرض (`PURCHASE_KINDS`): «أخرى» آخراً.
- *
- * المفتاح `equipment` باقٍ وإن صار اسمه «أخرى» بطلب العميل: قيد `purchase_items.kind`
- * في القاعدة يعرفه بهذا الاسم، وتغييره ترحيل يمسّ كل فاتورة مشتريات سابقة لأجل
- * تسمية فقط. العميل يكتب ما صرف عليه في اسم الصنف («شراء ثلاجة»).
- */
-export const PURCHASE_KIND_LABELS: Record<PurchaseKind, string> = {
-  ingredient: 'مكونات',
-  packaging: 'تغليف',
-  expense: 'مصاريف',
-  equipment: 'أخرى',
-}
-
-export const PURCHASE_KINDS = Object.keys(PURCHASE_KIND_LABELS) as PurchaseKind[]
-
 export interface PurchasesSummary {
   total: number
   bills: number
-  byKind: Record<PurchaseKind, number>
+  /** البنود الرئيسية مرتّبة بما صُرف عليها — أسماء حرّة، فلا قائمة ثابتة تُملأ أصفاراً. */
+  byKind: Array<{ kind: PurchaseKind; total: number }>
   /** الأصناف مرتّبة بما صُرف عليها — أين يذهب المال فعلاً. */
   items: Array<{ name: string; kind: PurchaseKind; unit: string; qty: number; total: number }>
 }
@@ -456,10 +442,7 @@ export function purchasesSummary(
   from: number,
   to: number,
 ): PurchasesSummary {
-  const byKind = Object.fromEntries(PURCHASE_KINDS.map((k) => [k, 0])) as Record<
-    PurchaseKind,
-    number
-  >
+  const byKind = new Map<string, number>()
   const items = new Map<string, PurchasesSummary['items'][number]>()
   let total = 0
   let count = 0
@@ -469,20 +452,24 @@ export function purchasesSummary(
     total += bill.total
     for (const l of bill.lines) {
       const amount = round2(l.qty * l.unitPrice)
-      byKind[l.kind] = (byKind[l.kind] ?? 0) + amount
+      // البند الرئيسي من لقطة الفاتورة لا من الصنف الحالي: إعادة تسمية البند لاحقاً
+      // لا تنقل صرف الأشهر الماضية — نفس قاعدة لقطات وقت البيع.
+      const group = groupName(l.kind)
+      byKind.set(group, (byKind.get(group) ?? 0) + amount)
       // التجميع بالاسم والوحدة معاً: «قشطة بالعلبة» و«قشطة بالكرتون» لا تُجمع كمياتهما.
       const key = `${l.name}\u0000${l.unit}`
-      const row = items.get(key) ?? { name: l.name, kind: l.kind, unit: l.unit, qty: 0, total: 0 }
+      const row = items.get(key) ?? { name: l.name, kind: group, unit: l.unit, qty: 0, total: 0 }
       row.qty += l.qty
       row.total = round2(row.total + amount)
       items.set(key, row)
     }
   }
-  for (const k of PURCHASE_KINDS) byKind[k] = round2(byKind[k])
   return {
     total: round2(total),
     bills: count,
-    byKind,
+    byKind: [...byKind.entries()]
+      .map(([kind, v]) => ({ kind, total: round2(v) }))
+      .sort((a, z) => z.total - a.total || a.kind.localeCompare(z.kind, 'ar')),
     items: [...items.values()].sort((a, z) => z.total - a.total),
   }
 }

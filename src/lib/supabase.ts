@@ -133,6 +133,10 @@ export function humanError(err: unknown): string {
   if (isMissingSchema(err)) {
     return 'قاعدة البيانات تحتاج تحديثاً: شغّل آخر ترحيل من مجلد supabase/migrations في SQL Editor.'
   }
+  // القيد القديم على الأنواع الأربعة: الواجهة سبقت ترحيل البنود الرئيسية الحرّة.
+  if (code === '23514' && /purchase_items_kind_check/.test(msg)) {
+    return 'قاعدة البيانات تحتاج تحديثاً لتقبل بنوداً رئيسية جديدة: شغّل الترحيل 20261016000000_expense_groups.sql في SQL Editor.'
+  }
   if (code === '23505') return 'هذه القيمة مستخدمة من قبل.'
   if (code === '23503') {
     // نفس الرمز لاتجاهين: حذف صفّ تعتمد عليه صفوف أخرى، أو إدراج يشير إلى صفّ مفقود.

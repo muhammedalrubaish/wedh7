@@ -27,12 +27,14 @@ import {
 } from '@/components/ui'
 import { Stat } from '@/components/Stat'
 import { date, money, monthLabel, num, parseNum, round2 } from '@/lib/format'
-import { PURCHASE_KINDS, PURCHASE_KIND_LABELS, purchasesSummary } from '@/lib/analytics'
+import { purchasesSummary } from '@/lib/analytics'
+import { STARTER_GROUPS, groupHint, groupName, groupsOf } from '@/lib/expenseGroups'
 import {
   audit,
   createPurchaseBill,
   createPurchaseItem,
   deletePurchaseBill,
+  renamePurchaseGroup,
   updatePurchaseItem,
 } from '@/lib/repo'
 import { cloudEnabled } from '@/lib/supabase'
@@ -41,27 +43,13 @@ import { useApp } from '@/store/app'
 import { usePurchaseBills, usePurchaseItems, useSuppliers } from '@/hooks/useShopData'
 import type { PurchaseBill, PurchaseItem, PurchaseKind } from '@/lib/types'
 
-const KIND_TONES: Record<PurchaseKind, Tone> = {
-  ingredient: 'brand',
-  packaging: 'accent',
-  equipment: 'neutral',
-  expense: 'warn',
-}
+const TONES: Tone[] = ['brand', 'accent', 'warn', 'ok', 'neutral']
 
-/** مثال في خانة الاسم يتبع النوع: في «أخرى» تحديداً الاسم هو كل الوصف. */
-const NAME_HINT: Record<PurchaseKind, string> = {
-  ingredient: 'اسم المكوّن: قشطة، سكر، دقيق…',
-  packaging: 'اسم التغليف: كرتون بوكس، شريطة…',
-  expense: 'اسم المصروف: إيجار المحل، كهرباء…',
-  equipment: 'اكتب ما صرفت عليه: شراء ثلاجة، صيانة الفرن…',
-}
-
-/** الوحدة الأولى المقترحة لكل نوع — تُعدَّل، لكنها توفّر كتابة «كيلو» عشرين مرة. */
-const DEFAULT_UNIT: Record<PurchaseKind, string> = {
-  ingredient: 'كيلو',
-  packaging: 'كرتون',
-  equipment: 'حبة',
-  expense: 'شهر',
+/** لون ثابت لكل بند رئيسي من اسمه: نفس البند بنفس اللون في كل شاشة وكل مرة. */
+function groupTone(name: string): Tone {
+  let h = 0
+  for (const ch of name) h = (h * 31 + ch.charCodeAt(0)) >>> 0
+  return TONES[h % TONES.length]
 }
 
 const monthStart = (ts: number) => {
@@ -94,6 +82,7 @@ export default function PurchaseBills() {
   const [creating, setCreating] = useState(false)
   const [removing, setRemoving] = useState<PurchaseBill | null>(null)
   const [editingItem, setEditingItem] = useState<PurchaseItem | null>(null)
+  const [renaming, setRenaming] = useState<string | null>(null)
 
   const editable = can('purchase.edit')
   const next = addMonths(month, 1)
@@ -131,7 +120,9 @@ export default function PurchaseBills() {
         <div>
           {/* «المصروفات» اسم الصفحة بطلب العميل؛ في الكود والقاعدة بقيت purchase_bills. */}
           <h1 className="text-xl font-bold tracking-tight">المصروفات</h1>
-          <p className="mt-0.5 text-sm text-muted">مكونات وتغليف ومصاريف وكل ما يصرفه المعمل</p>
+          <p className="mt-0.5 text-sm text-muted">
+            كل ما يصرفه المعمل، على بنود رئيسية وتحتها بنودها
+          </p>
         </div>
         {editable && (
           <Button variant="primary" onClick={() => setCreating(true)}>
@@ -159,7 +150,7 @@ export default function PurchaseBills() {
         onChange={setTab}
         items={[
           { value: 'bills', label: 'الفواتير' },
-          { value: 'items', label: 'الأصناف', count: items.length },
+          { value: 'items', label: 'البنود', count: items.length },
         ]}
       />
 
@@ -194,12 +185,10 @@ export default function PurchaseBills() {
           />
 
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-            {PURCHASE_KINDS.map((k) => (
-              <Card key={k} className="p-3">
-                <Badge tone={KIND_TONES[k]}>{PURCHASE_KIND_LABELS[k]}</Badge>
-                <p className="tnum mt-2 text-base font-bold break-words">
-                  {money(summary.byKind[k])}
-                </p>
+            {summary.byKind.map((g) => (
+              <Card key={g.kind} className="p-3">
+                <Badge tone={groupTone(g.kind)}>{g.kind}</Badge>
+                <p className="tnum mt-2 text-base font-bold break-words">{money(g.total)}</p>
               </Card>
             ))}
           </div>
@@ -251,7 +240,7 @@ export default function PurchaseBills() {
                     <div className="min-w-0">
                       <p className="font-medium break-words">{it.name}</p>
                       <p className="tnum text-[12px] text-muted">
-                        {num(it.qty, 2)} {it.unit} · {PURCHASE_KIND_LABELS[it.kind]}
+                        {num(it.qty, 2)} {it.unit} · {it.kind}
                       </p>
                     </div>
                     <span className="tnum shrink-0 font-semibold">{money(it.total)}</span>
@@ -262,12 +251,19 @@ export default function PurchaseBills() {
           )}
         </>
       ) : (
-        <ItemsList items={items} bills={bills} onEdit={editable ? setEditingItem : undefined} />
+        <ItemsList
+          items={items}
+          bills={bills}
+          onEdit={editable ? setEditingItem : undefined}
+          onRenameGroup={editable ? setRenaming : undefined}
+        />
       )}
 
       {creating && <BillForm onClose={() => setCreating(false)} />}
 
       {editingItem && <ItemForm item={editingItem} onClose={() => setEditingItem(null)} />}
+
+      {renaming && <GroupRename group={renaming} onClose={() => setRenaming(null)} />}
 
       <Modal
         open={Boolean(removing)}
@@ -345,10 +341,12 @@ function ItemsList({
   items,
   bills,
   onEdit,
+  onRenameGroup,
 }: {
   items: PurchaseItem[]
   bills: PurchaseBill[]
   onEdit?: (item: PurchaseItem) => void
+  onRenameGroup?: (group: string) => void
 }) {
   const spent = useMemo(() => {
     const m = new Map<string, number>()
@@ -363,88 +361,209 @@ function ItemsList({
       <Card>
         <EmptyState
           icon={<Receipt className="size-6" />}
-          title="لا أصناف بعد"
-          description="الأصناف تُضاف من نافذة «مصروف جديد» نفسها أول مرة تشتريها."
+          title="لا بنود بعد"
+          description="البنود تُضاف من نافذة «مصروف جديد» نفسها: بند رئيسي (التشغيلية) وتحته بنوده (راتب العامل، الكهرباء…)."
         />
       </Card>
     )
   }
 
-  const sorted = [...items].sort(
-    (a, b) =>
-      Number(a.archived) - Number(b.archived) ||
-      PURCHASE_KINDS.indexOf(a.kind) - PURCHASE_KINDS.indexOf(b.kind) ||
-      a.name.localeCompare(b.name, 'ar'),
-  )
+  // البنود الفرعية تحت بنودها الرئيسية، والمؤرشف آخر كل بند.
+  const groups = new Map<string, PurchaseItem[]>()
+  for (const it of items) {
+    const g = groupName(it.kind)
+    groups.set(g, [...(groups.get(g) ?? []), it])
+  }
+  const sections = [...groups.entries()]
+    .sort(([a], [b]) => a.localeCompare(b, 'ar'))
+    .map(([name, list]) => ({
+      name,
+      list: list.sort(
+        (a, b) => Number(a.archived) - Number(b.archived) || a.name.localeCompare(b.name, 'ar'),
+      ),
+      total: round2(list.reduce((n, it) => n + (spent.get(it.id) ?? 0), 0)),
+    }))
 
   return (
-    <Card>
-      <ul className="divide-y divide-border">
-        {sorted.map((it) => (
-          <li
-            key={it.id}
-            className={cn(
-              'flex items-center justify-between gap-3 px-4 py-2.5',
-              it.archived && 'opacity-60',
-            )}
-          >
-            <div className="min-w-0">
-              <p className="text-[14px] font-medium break-words">
-                {it.name}
-                {it.archived && <span className="text-[12px] text-faint"> · مؤرشف</span>}
-              </p>
-              <p className="mt-0.5 flex flex-wrap items-center gap-2 text-[12px] text-muted">
-                <Badge tone={KIND_TONES[it.kind]}>{PURCHASE_KIND_LABELS[it.kind]}</Badge>
-                <span>بالـ{it.unit}</span>
-              </p>
+    <div className="space-y-3">
+      {sections.map((sec) => (
+        <Card key={sec.name}>
+          <div className="flex items-center justify-between gap-2 border-b border-border bg-surface-2 px-4 py-2.5">
+            <div className="flex min-w-0 items-center gap-2">
+              <Badge tone={groupTone(sec.name)}>{sec.name}</Badge>
+              <span className="text-[12px] text-muted">{num(sec.list.length)} بند</span>
             </div>
             <div className="flex shrink-0 items-center gap-1">
-              <span className="tnum text-[13px] font-semibold">{money(spent.get(it.id) ?? 0)}</span>
-              {onEdit && (
-                <Button size="icon" variant="ghost" aria-label="تعديل" onClick={() => onEdit(it)}>
+              <span className="tnum text-[13px] font-bold">{money(sec.total)}</span>
+              {onRenameGroup && (
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  aria-label={`إعادة تسمية ${sec.name}`}
+                  onClick={() => onRenameGroup(sec.name)}
+                >
                   <Pencil className="size-4" />
                 </Button>
               )}
             </div>
-          </li>
-        ))}
-      </ul>
-    </Card>
+          </div>
+          <ul className="divide-y divide-border">
+            {sec.list.map((it) => (
+              <li
+                key={it.id}
+                className={cn(
+                  'flex items-center justify-between gap-3 px-4 py-2.5',
+                  it.archived && 'opacity-60',
+                )}
+              >
+                <div className="min-w-0">
+                  <p className="text-[14px] font-medium break-words">
+                    {it.name}
+                    {it.archived && <span className="text-[12px] text-faint"> · مؤرشف</span>}
+                  </p>
+                  <p className="mt-0.5 text-[12px] text-muted">بالـ{it.unit}</p>
+                </div>
+                <div className="flex shrink-0 items-center gap-1">
+                  <span className="tnum text-[13px] font-semibold">
+                    {money(spent.get(it.id) ?? 0)}
+                  </span>
+                  {onEdit && (
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      aria-label={`تعديل ${it.name}`}
+                      onClick={() => onEdit(it)}
+                    >
+                      <Pencil className="size-4" />
+                    </Button>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      ))}
+    </div>
   )
 }
 
-function KindPicker({
+/**
+ * اختيار البند الرئيسي أو كتابة اسم جديد. لا قائمة ثابتة: ما يكتبه صاحب المعمل
+ * هنا يصير بنداً رئيسياً بأول بند فرعي يُحفظ تحته.
+ */
+function GroupPicker({
   value,
   onChange,
+  groups,
 }: {
   value: PurchaseKind
-  onChange: (k: PurchaseKind) => void
+  onChange: (g: PurchaseKind) => void
+  groups: string[]
 }) {
+  const options = groups.length ? groups : STARTER_GROUPS
+  const [typing, setTyping] = useState(() => Boolean(value) && !options.includes(value))
   return (
-    <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
-      {PURCHASE_KINDS.map((k) => (
+    <div className="space-y-2">
+      <div className="flex flex-wrap gap-1.5">
+        {options.map((g) => (
+          <button
+            key={g}
+            type="button"
+            aria-pressed={!typing && value === g}
+            onClick={() => {
+              setTyping(false)
+              onChange(g)
+            }}
+            className={cn(
+              'rounded-lg border px-3 py-2 text-[13px] font-medium break-words transition-colors',
+              !typing && value === g
+                ? 'border-brand bg-brand-soft text-brand-strong'
+                : 'border-border text-muted hover:border-border-strong',
+            )}
+          >
+            {g}
+          </button>
+        ))}
         <button
-          key={k}
           type="button"
-          onClick={() => onChange(k)}
+          aria-pressed={typing}
+          onClick={() => {
+            setTyping(true)
+            onChange('')
+          }}
           className={cn(
-            'rounded-lg border px-2 py-2 text-[13px] font-medium transition-colors',
-            value === k
+            'rounded-lg border border-dashed px-3 py-2 text-[13px] font-medium transition-colors',
+            typing
               ? 'border-brand bg-brand-soft text-brand-strong'
-              : 'border-border text-muted hover:border-border-strong',
+              : 'border-border-strong text-muted hover:text-text',
           )}
         >
-          {PURCHASE_KIND_LABELS[k]}
+          ＋ بند رئيسي جديد
         </button>
-      ))}
+      </div>
+      {typing && (
+        <Input
+          autoFocus
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          aria-label="اسم البند الرئيسي"
+          placeholder="اسم البند الرئيسي: التشغيلية، الرواتب…"
+          maxLength={60}
+        />
+      )}
     </div>
+  )
+}
+
+/** إعادة تسمية بند رئيسي — تنتقل بها كل بنوده الفرعية معاً. */
+function GroupRename({ group, onClose }: { group: string; onClose: () => void }) {
+  const toast = useToast()
+  const [name, setName] = useState(group)
+  const [busy, setBusy] = useState(false)
+
+  async function save() {
+    setBusy(true)
+    try {
+      await renamePurchaseGroup(group, name)
+      toast('تمت إعادة التسمية')
+      onClose()
+    } catch (err) {
+      toast(err instanceof Error ? err.message : 'تعذّرت إعادة التسمية', 'error')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title="إعادة تسمية البند الرئيسي"
+      subtitle="تنتقل معه كل بنوده الفرعية. المصروفات المسجّلة سابقاً تبقى باسمها القديم"
+      size="sm"
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose}>
+            إلغاء
+          </Button>
+          <Button variant="primary" loading={busy} disabled={!name.trim()} onClick={save}>
+            حفظ
+          </Button>
+        </>
+      }
+    >
+      <Field label="الاسم">
+        <Input value={name} onChange={(e) => setName(e.target.value)} maxLength={60} />
+      </Field>
+    </Modal>
   )
 }
 
 function ItemForm({ item, onClose }: { item: PurchaseItem; onClose: () => void }) {
   const toast = useToast()
   const [name, setName] = useState(item.name)
-  const [kind, setKind] = useState<PurchaseKind>(item.kind)
+  const [kind, setKind] = useState<PurchaseKind>(groupName(item.kind))
+  const groups = groupsOf(usePurchaseItems())
   const [unit, setUnit] = useState(item.unit)
   const [busy, setBusy] = useState(false)
 
@@ -465,8 +584,8 @@ function ItemForm({ item, onClose }: { item: PurchaseItem; onClose: () => void }
     <Modal
       open
       onClose={onClose}
-      title="تعديل صنف"
-      subtitle="الفواتير القديمة تحتفظ بالاسم والنوع كما كانا يوم الشراء"
+      title="تعديل بند"
+      subtitle="المصروفات القديمة تحتفظ بالاسم والبند الرئيسي كما كانا يوم الشراء"
       size="sm"
       footer={
         <>
@@ -480,7 +599,7 @@ function ItemForm({ item, onClose }: { item: PurchaseItem; onClose: () => void }
           <Button
             variant="primary"
             loading={busy}
-            disabled={!name.trim()}
+            disabled={!name.trim() || !kind.trim()}
             onClick={() => save({ name: name.trim(), kind, unit: unit.trim() || item.unit })}
           >
             حفظ
@@ -489,12 +608,14 @@ function ItemForm({ item, onClose }: { item: PurchaseItem; onClose: () => void }
       }
     >
       <div className="space-y-3">
-        <Field label="اسم الصنف">
+        <Field label="اسم البند الفرعي">
           <Input value={name} onChange={(e) => setName(e.target.value)} />
         </Field>
-        <Field label="النوع">
-          <KindPicker value={kind} onChange={setKind} />
-        </Field>
+        {/* خارج `Field`: الحقل `<label>`، والضغط على نصّه كان يضغط أول زر في المنتقي. */}
+        <div>
+          <p className="mb-1.5 text-[13px] font-medium text-muted">البند الرئيسي</p>
+          <GroupPicker value={kind} onChange={setKind} groups={groups} />
+        </div>
         <Field label="الوحدة المعتادة">
           <Input value={unit} onChange={(e) => setUnit(e.target.value)} />
         </Field>
@@ -530,16 +651,10 @@ function BillForm({ onClose }: { onClose: () => void }) {
   const suppliers = useSuppliers()
   const items = usePurchaseItems()
   const active = useMemo(
-    () =>
-      items
-        .filter((i) => !i.archived)
-        .sort(
-          (a, b) =>
-            PURCHASE_KINDS.indexOf(a.kind) - PURCHASE_KINDS.indexOf(b.kind) ||
-            a.name.localeCompare(b.name, 'ar'),
-        ),
+    () => items.filter((i) => !i.archived).sort((a, b) => a.name.localeCompare(b.name, 'ar')),
     [items],
   )
+  const groups = useMemo(() => groupsOf(items), [items])
   const byId = useMemo(() => new Map(items.map((i) => [i.id, i])), [items])
 
   const [supplierId, setSupplierId] = useState('')
@@ -555,8 +670,8 @@ function BillForm({ onClose }: { onClose: () => void }) {
   // صنف جديد من داخل الفاتورة: أول شراء لـ«كريمة خفق» لا يستحق مغادرة النافذة.
   const [newFor, setNewFor] = useState<number | null>(null)
   const [newName, setNewName] = useState('')
-  const [newKind, setNewKind] = useState<PurchaseKind>('ingredient')
-  const [newUnit, setNewUnit] = useState(DEFAULT_UNIT.ingredient)
+  const [newKind, setNewKind] = useState<PurchaseKind>('')
+  const [newUnit, setNewUnit] = useState('')
 
   const patch = (key: number, p: Partial<DraftLine>) =>
     setLines((cur) => cur.map((l) => (l.key === key ? { ...l, ...p } : l)))
@@ -570,10 +685,12 @@ function BillForm({ onClose }: { onClose: () => void }) {
 
   function pickItem(key: number, value: string) {
     if (value === '__new') {
+      // البند الرئيسي الأول مختار مسبقاً: أغلب الإضافات تحت بند موجود.
+      const first = groups[0] ?? STARTER_GROUPS[0]
       setNewFor(key)
       setNewName('')
-      setNewKind('ingredient')
-      setNewUnit(DEFAULT_UNIT.ingredient)
+      setNewKind(first)
+      setNewUnit(groupHint(first).unit)
       return
     }
     patch(key, { itemId: value, unit: byId.get(value)?.unit ?? '' })
@@ -586,7 +703,7 @@ function BillForm({ onClose }: { onClose: () => void }) {
       patch(newFor, { itemId: item.id, unit: item.unit })
       setNewFor(null)
     } catch (err) {
-      toast(err instanceof Error ? err.message : 'تعذّر إضافة الصنف', 'error')
+      toast(err instanceof Error ? err.message : 'تعذّر إضافة البند', 'error')
     }
   }
 
@@ -596,7 +713,7 @@ function BillForm({ onClose }: { onClose: () => void }) {
     if (filled.length === 0) return setError('أضف بنداً واحداً على الأقل.')
     for (const l of filled) {
       const name = byId.get(l.itemId)?.name ?? 'بند'
-      if (!l.itemId) return setError('اختر الصنف في كل بند.')
+      if (!l.itemId) return setError('اختر البند في كل سطر.')
       if (!(parseNum(l.qty) > 0)) return setError(`اكتب كمية «${name}».`)
       if (!(parseNum(l.unitPrice) >= 0)) return setError(`اكتب سعر «${name}».`)
     }
@@ -637,7 +754,7 @@ function BillForm({ onClose }: { onClose: () => void }) {
       open
       onClose={onClose}
       title="مصروف جديد"
-      subtitle="ما صرفته على المعمل: النوع والكمية والسعر"
+      subtitle="ما صرفته على المعمل: البند والكمية والسعر"
       size="lg"
       footer={
         <div className="flex w-full items-center justify-between gap-3">
@@ -686,25 +803,24 @@ function BillForm({ onClose }: { onClose: () => void }) {
               <div className="flex items-center gap-2">
                 <span className="tnum text-[12px] text-faint">{idx + 1}</span>
                 <Select
-                  aria-label="الصنف"
+                  aria-label="البند"
                   value={l.itemId}
                   onChange={(e) => pickItem(l.key, e.target.value)}
                   className="flex-1"
                 >
-                  <option value="">اختر الصنف…</option>
-                  {PURCHASE_KINDS.map((k) => {
-                    const group = active.filter((i) => i.kind === k)
-                    return group.length ? (
-                      <optgroup key={k} label={PURCHASE_KIND_LABELS[k]}>
-                        {group.map((i) => (
+                  <option value="">اختر البند…</option>
+                  {groups.map((g) => (
+                    <optgroup key={g} label={g}>
+                      {active
+                        .filter((i) => groupName(i.kind) === g)
+                        .map((i) => (
                           <option key={i.id} value={i.id}>
                             {i.name}
                           </option>
                         ))}
-                      </optgroup>
-                    ) : null
-                  })}
-                  <option value="__new">＋ صنف جديد…</option>
+                    </optgroup>
+                  ))}
+                  <option value="__new">＋ بند جديد…</option>
                 </Select>
                 {lines.length > 1 && (
                   <Button
@@ -720,20 +836,22 @@ function BillForm({ onClose }: { onClose: () => void }) {
 
               {newFor === l.key && (
                 <div className="mt-3 space-y-2.5 rounded-lg bg-surface-2 p-3">
-                  {/* النوع أولاً ثم الاسم: مثال الخانة يتغيّر بالنوع فيعرف ماذا يكتب. */}
-                  <KindPicker
+                  {/* البند الرئيسي أولاً ثم الفرعي: مثال الخانة يتغيّر بالرئيسي فيعرف ماذا يكتب. */}
+                  <p className="text-[12px] font-medium text-muted">البند الرئيسي</p>
+                  <GroupPicker
                     value={newKind}
-                    onChange={(k) => {
-                      setNewKind(k)
-                      setNewUnit(DEFAULT_UNIT[k])
+                    groups={groups}
+                    onChange={(g) => {
+                      setNewKind(g)
+                      setNewUnit(groupHint(g).unit)
                     }}
                   />
+                  <p className="pt-1 text-[12px] font-medium text-muted">البند الفرعي</p>
                   <Input
-                    autoFocus
                     value={newName}
                     onChange={(e) => setNewName(e.target.value)}
-                    aria-label="اسم الصنف"
-                    placeholder={NAME_HINT[newKind]}
+                    aria-label="اسم البند الفرعي"
+                    placeholder={groupHint(newKind).name}
                   />
                   <div className="flex items-center gap-2">
                     <Input
@@ -750,10 +868,10 @@ function BillForm({ onClose }: { onClose: () => void }) {
                     <Button
                       variant="primary"
                       size="sm"
-                      disabled={!newName.trim()}
+                      disabled={!newName.trim() || !newKind.trim()}
                       onClick={addItem}
                     >
-                      إضافة الصنف
+                      إضافة البند
                     </Button>
                   </div>
                 </div>
