@@ -938,6 +938,28 @@ export async function createPurchaseBill(input: PurchaseBillInput): Promise<Purc
   return bill
 }
 
+/**
+ * تعديل مصروف = مصروف جديد بالبيانات المعدّلة ثم حذف القديم. لا سياسة تعديل على
+ * `purchase_bills` عمداً (انظر `deletePurchaseBill`)، ودالة تعديل ذرّية على الخادم
+ * تعديلٌ لدوال القاعدة يحتاج استشارة — فيُبنى التعديل من الدالتين القائمتين.
+ *
+ * الجديد أولاً: إن فشل حذف القديم بعده يبقى المصروفان ظاهرين ويُحذف أحدهما يدوياً؛
+ * أما الحذف أولاً ففشل الإنشاء بعده يُضيع المصروف كله. `oldRemoved` يخبر الشاشة.
+ */
+export async function replacePurchaseBill(
+  oldId: string,
+  input: PurchaseBillInput,
+): Promise<{ bill: PurchaseBill; oldRemoved: boolean }> {
+  const bill = await createPurchaseBill(input)
+  try {
+    await deletePurchaseBill(oldId)
+    return { bill, oldRemoved: true }
+  } catch (err) {
+    console.error('تعذّر حذف المصروف القديم بعد تعديله:', err)
+    return { bill, oldRemoved: false }
+  }
+}
+
 /** التصحيح حذفٌ ثم إعادة إدخال — لا تعديل صامت لبنود فاتورة محفوظة. */
 export async function deletePurchaseBill(id: string): Promise<void> {
   if (cloudEnabled) {

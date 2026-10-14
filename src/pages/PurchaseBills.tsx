@@ -35,6 +35,7 @@ import {
   createPurchaseItem,
   deletePurchaseBill,
   renamePurchaseGroup,
+  replacePurchaseBill,
   updatePurchaseItem,
 } from '@/lib/repo'
 import { cloudEnabled } from '@/lib/supabase'
@@ -83,6 +84,7 @@ export default function PurchaseBills() {
   const [removing, setRemoving] = useState<PurchaseBill | null>(null)
   const [editingItem, setEditingItem] = useState<PurchaseItem | null>(null)
   const [renaming, setRenaming] = useState<string | null>(null)
+  const [editingBill, setEditingBill] = useState<PurchaseBill | null>(null)
 
   const editable = can('purchase.edit')
   const next = addMonths(month, 1)
@@ -219,6 +221,7 @@ export default function PurchaseBills() {
                 <BillCard
                   key={b.id}
                   bill={b}
+                  onEdit={editable ? () => setEditingBill(b) : undefined}
                   onDelete={editable ? () => setRemoving(b) : undefined}
                 />
               ))}
@@ -261,6 +264,8 @@ export default function PurchaseBills() {
 
       {creating && <BillForm onClose={() => setCreating(false)} />}
 
+      {editingBill && <BillForm bill={editingBill} onClose={() => setEditingBill(null)} />}
+
       {editingItem && <ItemForm item={editingItem} onClose={() => setEditingItem(null)} />}
 
       {renaming && <GroupRename group={renaming} onClose={() => setRenaming(null)} />}
@@ -294,9 +299,30 @@ export default function PurchaseBills() {
   )
 }
 
-function BillCard({ bill, onDelete }: { bill: PurchaseBill; onDelete?: () => void }) {
+function BillCard({
+  bill,
+  onEdit,
+  onDelete,
+}: {
+  bill: PurchaseBill
+  onEdit?: () => void
+  onDelete?: () => void
+}) {
+  // البطاقة كلها تفتح التعديل بضغطة؛ زر الحذف داخلها يوقف الضغطة كي لا يفتح التعديل معه.
   return (
-    <Card className="p-4">
+    <Card
+      className={cn('p-4', onEdit && 'cursor-pointer transition-colors hover:border-brand')}
+      role={onEdit ? 'button' : undefined}
+      tabIndex={onEdit ? 0 : undefined}
+      aria-label={onEdit ? `تعديل مصروف ${bill.supplierName ?? 'بلا مورد'}` : undefined}
+      onClick={onEdit}
+      onKeyDown={(e) => {
+        if (onEdit && (e.key === 'Enter' || e.key === ' ')) {
+          e.preventDefault()
+          onEdit()
+        }
+      }}
+    >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="font-semibold break-words">{bill.supplierName ?? 'بلا مورد'}</p>
@@ -308,7 +334,15 @@ function BillCard({ bill, onDelete }: { bill: PurchaseBill; onDelete?: () => voi
         <div className="flex shrink-0 items-center gap-1">
           <span className="tnum text-base font-bold">{money(bill.total)}</span>
           {onDelete && (
-            <Button size="icon" variant="ghost" aria-label="حذف الفاتورة" onClick={onDelete}>
+            <Button
+              size="icon"
+              variant="ghost"
+              aria-label="حذف الفاتورة"
+              onClick={(e) => {
+                e.stopPropagation()
+                onDelete()
+              }}
+            >
               <Trash2 className="size-4 text-danger" />
             </Button>
           )}
@@ -645,25 +679,45 @@ const fromDateInput = (v: string): number => {
 
 let lineKey = 0
 
-function BillForm({ onClose }: { onClose: () => void }) {
+/** `yyyy-mm-dd` لخانة التاريخ بالتوقيت المحلي — عكس `fromDateInput`. */
+const toDateInput = (ts: number) => {
+  const d = new Date(ts)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+/** `bill` = تعديل مصروف قائم: النافذة نفسها معبّأة ببياناته، والحفظ يستبدله. */
+function BillForm({ onClose, bill }: { onClose: () => void; bill?: PurchaseBill }) {
   const { user } = useApp()
   const toast = useToast()
   const suppliers = useSuppliers()
   const items = usePurchaseItems()
+  // بند مؤرشف في المصروف المعدَّل يبقى في القائمة، وإلا ظهر سطره فارغاً «اختر البند».
+  const inBill = useMemo(() => new Set(bill?.lines.map((l) => l.itemId) ?? []), [bill])
   const active = useMemo(
-    () => items.filter((i) => !i.archived).sort((a, b) => a.name.localeCompare(b.name, 'ar')),
-    [items],
+    () =>
+      items
+        .filter((i) => !i.archived || inBill.has(i.id))
+        .sort((a, b) => a.name.localeCompare(b.name, 'ar')),
+    [items, inBill],
   )
-  const groups = useMemo(() => groupsOf(items), [items])
+  const groups = useMemo(() => groupsOf(active.map((i) => ({ ...i, archived: false }))), [active])
   const byId = useMemo(() => new Map(items.map((i) => [i.id, i])), [items])
 
-  const [supplierId, setSupplierId] = useState('')
-  const [day, setDay] = useState(todayInput)
-  const [ref, setRef] = useState('')
-  const [notes, setNotes] = useState('')
-  const [lines, setLines] = useState<DraftLine[]>(() => [
-    { key: ++lineKey, itemId: '', qty: '', unit: '', unitPrice: '' },
-  ])
+  const [supplierId, setSupplierId] = useState(bill?.supplierId ?? '')
+  const [day, setDay] = useState(() => (bill ? toDateInput(bill.purchasedAt) : todayInput()))
+  const [ref, setRef] = useState(bill?.ref ?? '')
+  const [notes, setNotes] = useState(bill?.notes ?? '')
+  const [lines, setLines] = useState<DraftLine[]>(() =>
+    bill?.lines.length
+      ? bill.lines.map((l) => ({
+          key: ++lineKey,
+          itemId: l.itemId ?? '',
+          qty: String(l.qty),
+          unit: l.unit,
+          unitPrice: String(l.unitPrice),
+        }))
+      : [{ key: ++lineKey, itemId: '', qty: '', unit: '', unitPrice: '' }],
+  )
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -720,7 +774,7 @@ function BillForm({ onClose }: { onClose: () => void }) {
     if (!day) return setError('اختر تاريخ الشراء.')
     setBusy(true)
     try {
-      const bill = await createPurchaseBill({
+      const input = {
         supplierId: supplierId || undefined,
         purchasedAt: fromDateInput(day),
         ref: ref.trim() || undefined,
@@ -731,16 +785,27 @@ function BillForm({ onClose }: { onClose: () => void }) {
           unitPrice: parseNum(l.unitPrice),
           unit: l.unit.trim() || undefined,
         })),
-      })
+      }
+      let saved: PurchaseBill
+      if (bill) {
+        const res = await replacePurchaseBill(bill.id, input)
+        saved = res.bill
+        if (!res.oldRemoved) {
+          // التعديل حُفظ؛ النافذة تُغلق كي لا يُضغط الحفظ مرة ثانية فتصير ثلاث نسخ.
+          toast('حُفظ التعديل، لكن بقيت النسخة القديمة — احذفها من القائمة.', 'warn')
+        }
+      } else {
+        saved = await createPurchaseBill(input)
+      }
       if (user)
         await audit(
           user,
-          'مصروف جديد',
+          bill ? 'تعديل مصروف' : 'مصروف جديد',
           'purchase_bill',
-          bill.id,
-          `${bill.supplierName ?? 'بلا مورد'} — ${money(bill.total)}`,
+          saved.id,
+          `${saved.supplierName ?? 'بلا مورد'} — ${bill ? `${money(bill.total)} ← ` : ''}${money(saved.total)}`,
         )
-      toast(`تم حفظ المصروف — ${money(bill.total)}`)
+      toast(`${bill ? 'تم حفظ التعديل' : 'تم حفظ المصروف'} — ${money(saved.total)}`)
       onClose()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'تعذّر الحفظ')
@@ -753,7 +818,7 @@ function BillForm({ onClose }: { onClose: () => void }) {
     <Modal
       open
       onClose={onClose}
-      title="مصروف جديد"
+      title={bill ? 'تعديل مصروف' : 'مصروف جديد'}
       subtitle="ما صرفته على المعمل: البند والكمية والسعر"
       size="lg"
       footer={
@@ -764,7 +829,7 @@ function BillForm({ onClose }: { onClose: () => void }) {
               إلغاء
             </Button>
             <Button variant="primary" loading={busy} onClick={save}>
-              حفظ الفاتورة
+              {bill ? 'حفظ التعديل' : 'حفظ الفاتورة'}
             </Button>
           </div>
         </div>
