@@ -32,6 +32,14 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import type { Invoice, ReturnNote } from '@/lib/types'
 
 type RangeKey = 'today' | 'week' | 'month' | 'all'
+
+const RANGES: Array<{ value: RangeKey; label: string }> = [
+  { value: 'today', label: 'اليوم' },
+  { value: 'week', label: '٧ أيام' },
+  { value: 'month', label: '٣٠ يوم' },
+  { value: 'all', label: 'الكل' },
+]
+
 type View = 'invoices' | 'returns'
 
 const RANGE_DAYS: Record<RangeKey, number> = { today: 1, week: 7, month: 30, all: 3650 }
@@ -113,9 +121,11 @@ export default function Invoices() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <h1 className="text-xl font-bold tracking-tight">الفواتير والمرتجعات</h1>
+      <div className="space-y-3 sm:flex sm:flex-wrap sm:items-center sm:justify-between sm:gap-3 sm:space-y-0">
+        <h1 className="text-xl font-bold tracking-tight">الفواتير والمرتجعات</h1>
+        {/* النوع والفترة في سطر واحد على الجوال. الفترة كاملةً تبويبات تحتاج ٢٢٤ بكسل
+            لا تتسع بجانب تبويبَي النوع، فتصير قائمة مختصرة على الجوال وحده. */}
+        <div className="flex items-center gap-2 sm:gap-3">
           <Tabs
             value={view}
             onChange={setView}
@@ -124,17 +134,25 @@ export default function Invoices() {
               { value: 'returns', label: 'المرتجعات', count: returnRows.length },
             ]}
           />
+          <Tabs
+            value={range}
+            onChange={setRange}
+            items={RANGES}
+            className="hidden sm:inline-flex"
+          />
+          <Select
+            value={range}
+            onChange={(e) => setRange(e.target.value as RangeKey)}
+            aria-label="الفترة"
+            className="ms-auto w-[6.5rem] shrink-0 pr-2.5 pl-1.5 sm:hidden"
+          >
+            {RANGES.map((r) => (
+              <option key={r.value} value={r.value}>
+                {r.label}
+              </option>
+            ))}
+          </Select>
         </div>
-        <Tabs
-          value={range}
-          onChange={setRange}
-          items={[
-            { value: 'today', label: 'اليوم' },
-            { value: 'week', label: '٧ أيام' },
-            { value: 'month', label: '٣٠ يوم' },
-            { value: 'all', label: 'الكل' },
-          ]}
-        />
       </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
