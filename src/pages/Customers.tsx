@@ -200,34 +200,40 @@ export default function Customers() {
       </div>
 
       <Card className="p-3">
-        <div className="flex flex-wrap gap-2">
-          <div className="relative min-w-52 flex-1">
+        {/* صف واحد حتى على الجوال (طلب العميل): القائمتان أضيق وأسماء خياراتهما قصيرة،
+        والبحث يأخذ ما يبقى. النص الكامل في aria-label. */}
+        <div className="flex items-center gap-2">
+          <div className="relative min-w-0 flex-1">
             <Search className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-faint" />
             <Input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="اسم المحل أو جواله أو رقمه الضريبي…"
+              placeholder="ابحث…"
+              aria-label="ابحث باسم المحل أو جواله أو رقمه الضريبي"
+              title="ابحث باسم المحل أو جواله أو رقمه الضريبي"
               className="pr-9"
             />
           </div>
           <Select
             value={type}
             onChange={(e) => setType(e.target.value as 'all' | CustomerType)}
-            className="w-36"
+            aria-label="نوع العميل"
+            className="w-[5.25rem] shrink-0 pr-2.5 pl-1.5 sm:w-36 sm:pr-3 sm:pl-8"
           >
-            <option value="all">كل الأنواع</option>
-            <option value="wholesale">محلات / جملة</option>
+            <option value="all">الكل</option>
+            <option value="wholesale">محلات</option>
             <option value="retail">أفراد</option>
           </Select>
           <Select
             value={sort}
             onChange={(e) => setSort(e.target.value as SortKey)}
-            className="w-44"
+            aria-label="الترتيب"
+            className="w-[7rem] shrink-0 pr-2.5 pl-1.5 sm:w-44 sm:pr-3 sm:pl-8"
           >
             <option value="spent">الأكثر شراءً</option>
-            <option value="recent">الأحدث شراءً</option>
+            <option value="recent">الأحدث</option>
             <option value="invoices">الأكثر فواتير</option>
-            <option value="name">الترتيب الأبجدي</option>
+            <option value="name">أبجدياً</option>
           </Select>
         </div>
       </Card>
