@@ -182,6 +182,28 @@ function render(size, { width = 0.82, rounded = false } = {}) {
   return encodePng(size, size, rgba)
 }
 
+/**
+ * الشعار نفسه بلون صريح على شفافية — للطباعة. القناع الأصلي أبيض، والطابعة لا تطبع
+ * لون خلفية القناع إلا إن فعّل المستخدم «طباعة الخلفيات»؛ الصورة تُطبع دائماً.
+ */
+function renderMark(width, color) {
+  const scale = mark.width / width
+  const height = Math.round(mark.height / scale)
+  const rgba = Buffer.alloc(width * height * 4)
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const i = (y * width + x) * 4
+      rgba[i] = color[0]
+      rgba[i + 1] = color[1]
+      rgba[i + 2] = color[2]
+      rgba[i + 3] = Math.round(
+        255 * coverage(x * scale, y * scale, (x + 1) * scale, (y + 1) * scale),
+      )
+    }
+  }
+  return encodePng(width, height, rgba)
+}
+
 mkdirSync('public', { recursive: true })
 
 const outputs = [
@@ -193,6 +215,10 @@ const outputs = [
   ['public/icon-512.png', render(512)],
   // أندرويد يقصّ الأطراف بأشكال مختلفة (دائرة، مربع مستدير)؛ المضمون هو الوسط.
   ['public/icon-maskable-512.png', render(512, { width: 0.66 })],
+  // الطابعة الحرارية أحادية اللون: العنابي يخرج رمادياً منقّطاً، والأسود يخرج حادّاً.
+  ['public/brand-print-black.png', renderMark(480, [0, 0, 0])],
+  // التقرير A4 على طابعة ملوّنة غالباً — بلون الهوية.
+  ['public/brand-print-color.png', renderMark(480, BRAND)],
 ]
 
 for (const [path, buf] of outputs) {

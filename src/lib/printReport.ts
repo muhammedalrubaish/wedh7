@@ -1,5 +1,5 @@
 import { date, dateTime, money, num } from './format'
-import { esc, openAndPrint } from './print'
+import { esc, logoImg, openAndPrint } from './print'
 import type {
   CustomerPerformance,
   PartPerformance,
@@ -33,7 +33,9 @@ const STYLE = `
   @page { size: A4; margin: 14mm 12mm; }
   * { box-sizing: border-box; }
   body { font-family: "IBM Plex Sans Arabic", system-ui, sans-serif; margin: 0; color: #111; font-size: 11px; }
-  header { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2px solid #702928; padding-bottom: 8px; margin-bottom: 12px; }
+  header { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; border-bottom: 2px solid #702928; padding-bottom: 8px; margin-bottom: 12px; }
+  .head { display: flex; align-items: center; gap: 12px; }
+  .logo { width: 34mm; height: auto; }
   h1 { font-size: 18px; margin: 0; color: #702928; }
   h2 { font-size: 13px; margin: 16px 0 6px; color: #4c1e21; break-after: avoid; }
   .muted { color: #555; font-size: 10px; margin: 2px 0; }
@@ -219,9 +221,12 @@ export function printReport(data: ReportPrintData, settings: Settings): boolean 
 <title>${esc(data.title)} — ${esc(settings.shopName)}</title>
 <style>${STYLE}</style></head><body>
 <header>
-  <div>
-    <h1>${esc(settings.shopName)} — ${esc(data.title)}</h1>
-    <p class="muted">من ${esc(date(data.from))} إلى ${esc(date(data.to))}</p>
+  <div class="head">
+    ${logoImg('color')}
+    <div>
+      <h1>${esc(settings.shopName)} — ${esc(data.title)}</h1>
+      <p class="muted">من ${esc(date(data.from))} إلى ${esc(date(data.to))}</p>
+    </div>
   </div>
   <p class="muted">طُبع ${esc(dateTime(Date.now()))}</p>
 </header>

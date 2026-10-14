@@ -37,7 +37,18 @@ const STYLE = `
   .foot { text-align: center; color: #666; font-size: 9px; margin-top: 10px; }
   .refunded { border: 1px solid #c00; color: #c00; text-align: center; font-weight: 700; padding: 3px; margin-top: 8px; }
   .box { border: 1px solid #999; border-radius: 4px; padding: 4px 6px; margin-top: 8px; font-size: 10px; }
+  .logo { display: block; width: 40mm; height: auto; margin: 0 auto 4px; }
 `
+
+/**
+ * شعار العميل للطباعة. رابط كامل لا نسبي: النافذة الجديدة `about:blank` وقد لا
+ * تحلّ الرابط النسبي على أصل الموقع في كل متصفح.
+ */
+export const logoUrl = (variant: 'black' | 'color') =>
+  `${location.origin}/brand-print-${variant}.png`
+
+export const logoImg = (variant: 'black' | 'color', cls = 'logo') =>
+  `<img class="${cls}" src="${logoUrl(variant)}" alt="">`
 
 /** `false` حين يحجب المتصفح النافذة — المستدعي يخبر المستخدم بدل أن لا يحدث شيء. */
 export function openAndPrint(html: string, features = 'width=420,height=700'): boolean {
@@ -46,7 +57,20 @@ export function openAndPrint(html: string, features = 'width=420,height=700'): b
   win.document.write(html)
   win.document.close()
   win.focus()
-  setTimeout(() => win.print(), 400)
+  // الشعار صورة تُحمَّل من الشبكة: الطباعة قبل وصولها تُخرج الورقة بلا شعار. سقف
+  // ثانيتين ونصف كي لا تعلق الطباعة إن تعذّر تحميلها — الفاتورة أهم من شعارها.
+  const pending = [...win.document.images]
+    .filter((img) => !img.complete)
+    .map(
+      (img) =>
+        new Promise((done) => {
+          img.addEventListener('load', done)
+          img.addEventListener('error', done)
+        }),
+    )
+  void Promise.race([Promise.all(pending), new Promise((done) => setTimeout(done, 2500))]).then(
+    () => setTimeout(() => win.print(), 200),
+  )
   return true
 }
 
@@ -113,6 +137,7 @@ export async function printInvoice(
 <title>${esc(invoice.number)}</title>
 <style>${STYLE}</style></head><body><div class="wrap">
 <header>
+  ${logoImg('black')}
   <h1>${esc(settings.shopName)}</h1>
   ${settings.shopNameEn ? `<p class="muted">${esc(settings.shopNameEn)}</p>` : ''}
   <p class="muted">${esc(settings.address)}</p>
@@ -158,6 +183,7 @@ export function printReturn(note: ReturnNote, settings: Settings): void {
 <title>${esc(note.number)}</title>
 <style>${STYLE}</style></head><body><div class="wrap">
 <header>
+  ${logoImg('black')}
   <h1>${esc(settings.shopName)}</h1>
   <p class="muted">${esc(settings.address)}</p>
   <p class="muted">هاتف ${esc(settings.phone)}</p>
