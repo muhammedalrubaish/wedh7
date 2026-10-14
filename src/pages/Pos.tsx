@@ -14,7 +14,6 @@ import {
   UserPlus,
 } from 'lucide-react'
 import {
-  Badge,
   Button,
   Card,
   EmptyState,
@@ -90,10 +89,10 @@ export default function Pos() {
    * تُستبدل عند كل إقلاع، وعميل كان مختاراً قد يختفي، فيُفشل الفاتورة كلها.
    */
   const customerRef = customer?.id
-  const tier = customer?.type ?? 'retail'
 
-  const priceFor = (p: Part, c: Customer | undefined) =>
-    c?.type === 'wholesale' ? p.priceWholesale : p.priceRetail
+  // سعر بيع واحد لكل العملاء بطلب العميل — انظر `withSellPrice` في PartForm. يبقى
+  // `priceFor` نقطة واحدة إن عاد يوماً سعر خاص للمحلات.
+  const priceFor = (p: Part, _c: Customer | undefined) => p.priceRetail
 
   // تغيير العميل يعيد تسعير السلة، وإلا كانت الشريحة كذبة.
   useEffect(() => {
@@ -375,7 +374,6 @@ export default function Pos() {
               <UserPlus className="size-4" />
             </Button>
           </div>
-          {tier === 'wholesale' && <Badge tone="accent">سعر الجملة مطبّق</Badge>}
         </div>
 
         {cart.length === 0 ? (

@@ -286,8 +286,7 @@ export default function Inventory() {
                       </span>
                     </th>
                     {showCost && <th className="px-3 py-2.5 font-medium">التكلفة</th>}
-                    <th className="px-3 py-2.5 font-medium">سعر المحل</th>
-                    <th className="px-3 py-2.5 font-medium">سعر الجملة</th>
+                    <th className="px-3 py-2.5 font-medium">سعر البيع</th>
                     {showCost && <th className="px-3 py-2.5 font-medium">الهامش</th>}
                     <th className="w-10 px-2 py-2.5" />
                   </tr>
@@ -372,7 +371,6 @@ export default function Inventory() {
                           <td className="tnum px-3 py-2.5 text-muted">{money(p.cost)}</td>
                         )}
                         <td className="tnum px-3 py-2.5 font-medium">{money(p.priceRetail)}</td>
-                        <td className="tnum px-3 py-2.5 text-muted">{money(p.priceWholesale)}</td>
                         {showCost && (
                           <td className="px-3 py-2.5">
                             <span
@@ -429,9 +427,7 @@ export default function Inventory() {
                       <div className="tnum mt-1 flex flex-wrap items-center gap-x-2 text-[11px] text-faint">
                         <span>{p.sku}</span>
                         <span>·</span>
-                        <span>محل {money(p.priceRetail)}</span>
-                        <span>·</span>
-                        <span>جملة {money(p.priceWholesale)}</span>
+                        <span>{money(p.priceRetail)}</span>
                         {p.location && (
                           <>
                             <span>·</span>

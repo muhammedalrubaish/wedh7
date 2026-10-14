@@ -199,7 +199,7 @@ export async function seed(): Promise<void> {
       supplierId: suppliers[0].id,
       cost: spec.cost,
       priceRetail: retail,
-      priceWholesale: round2(retail * 0.8),
+      priceWholesale: retail, // سعر بيع واحد لكل العملاء — انظر PartForm
       qty: spec.qty,
       reorderPoint: Math.max(5, Math.round(spec.qty * 0.25)),
       reorderQty: Math.max(20, Math.round(spec.qty * 0.5)),

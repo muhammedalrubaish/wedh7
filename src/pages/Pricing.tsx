@@ -202,8 +202,7 @@ export default function Pricing() {
                   <tr className="border-b border-border bg-surface-2 text-right text-[12px] text-muted">
                     <th className="px-4 py-2.5 font-medium">المنتج</th>
                     <th className="px-3 py-2.5 font-medium">التكلفة</th>
-                    <th className="px-3 py-2.5 font-medium">سعر المحل</th>
-                    <th className="hidden px-3 py-2.5 font-medium md:table-cell">الجملة</th>
+                    <th className="px-3 py-2.5 font-medium">سعر البيع</th>
                     <th className="px-3 py-2.5 font-medium">الهامش</th>
                   </tr>
                 </thead>
@@ -228,20 +227,25 @@ export default function Pricing() {
                           [
                             ['cost', cost],
                             ['priceRetail', retail],
-                            ['priceWholesale', valueOf(p, 'priceWholesale')],
                           ] as const
-                        ).map(([key, val], i) => (
-                          <td
-                            key={key}
-                            className={cn('px-3 py-2', i >= 2 && 'hidden md:table-cell')}
-                          >
+                        ).map(([key, val]) => (
+                          <td key={key} className="px-3 py-2">
                             <input
                               type="number"
                               min="0"
                               step="0.5"
                               disabled={!editable}
                               value={val}
-                              onChange={(e) => edit(p.id, { [key]: Number(e.target.value) })}
+                              onChange={(e) => {
+                                const v = Number(e.target.value)
+                                // سعر بيع واحد: يُكتب في العمودين معاً — انظر PartForm.
+                                edit(
+                                  p.id,
+                                  key === 'cost'
+                                    ? { cost: v }
+                                    : { priceRetail: v, priceWholesale: v },
+                                )
+                              }}
                               className="tnum h-8 w-24 rounded-lg border border-border bg-surface px-2 focus:border-brand focus:outline-none disabled:border-transparent disabled:bg-transparent"
                             />
                           </td>
@@ -294,7 +298,7 @@ function BulkPricing({ open, onClose }: { open: boolean; onClose: () => void }) 
         const retail = round2(p.cost * (1 + markup / 100))
         await updatePart(p.id, {
           priceRetail: retail,
-          priceWholesale: round2(retail * 0.8),
+          priceWholesale: retail,
         })
       }
       await updateCategory(categoryId, { defaultMarkupPercent: markup })
@@ -388,7 +392,7 @@ function BulkPricing({ open, onClose }: { open: boolean; onClose: () => void }) 
         )}
 
         <p className="rounded-xl bg-warn-soft px-3 py-2 text-[12px] text-warn">
-          سيُعاد حساب سعر الجملة تلقائياً (٨٠٪ من سعر المحل). العملية لا تُلغى.
+          سعر البيع الجديد يُطبَّق على كل العملاء. العملية لا تُلغى.
         </p>
       </div>
     </Modal>

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Sparkles } from 'lucide-react'
-import { Button, Field, Input, Modal, Select, Textarea, cn, useToast } from './ui'
+import { Button, Field, Input, Modal, Select, Switch, Textarea, cn, useToast } from './ui'
 import { applyMovement, audit, createCategory, createPart, updatePart } from '@/lib/repo'
 import { marginPercent, money, round2 } from '@/lib/format'
 import { useApp } from '@/store/app'
@@ -27,8 +27,15 @@ const BLANK: Draft = {
   notes: '',
 }
 
-/** سعر الجملة الافتراضي نسبةً من القطاعي — المحلات تأخذ بخصم ٢٠٪ عادةً. */
-const WHOLESALE_RATIO = 0.8
+/**
+ * سعر بيع واحد لكل العملاء بطلب العميل: «سعر البيع» يُكتب في `priceRetail`
+ * و`priceWholesale` معاً. العمودان باقيان في القاعدة لأن حذف أحدهما ترحيل يمسّ
+ * المنظر والمنح، ولأن تساويهما يُبقي كل حساب قديم صحيحاً كما هو.
+ */
+const withSellPrice = <T extends { priceRetail: number; priceWholesale: number }>(
+  d: T,
+  price: number,
+): T => ({ ...d, priceRetail: price, priceWholesale: price })
 
 export function PartForm({
   open,
@@ -51,14 +58,19 @@ export function PartForm({
   // فإنشاؤه من هنا هو ما يجعل أول منتج ممكناً دون البحث عن شاشة أخرى.
   const [newCategory, setNewCategory] = useState<string | null>(null)
   const [addingCategory, setAddingCategory] = useState(false)
+  // منتج قديم بسعرين مختلفين: الحفظ يوحّدهما على «سعر البيع»، فيُعرض سعر الجملة السابق
+  // صراحةً قبل أن يختفي — المحلات كانت تُحاسَب به.
+  const [oldWholesale, setOldWholesale] = useState<number | null>(null)
 
   useEffect(() => {
     if (!open) return
     setErrors({})
     setNewCategory(null)
+    setOldWholesale(null)
     if (part) {
       const { id: _id, createdAt: _c, updatedAt: _u, archived: _a, ...rest } = part
       setDraft(rest)
+      setOldWholesale(part.priceWholesale !== part.priceRetail ? part.priceWholesale : null)
     } else {
       setDraft({
         ...BLANK,
@@ -99,15 +111,10 @@ export function PartForm({
 
   const category = categories.find((c) => c.id === draft.categoryId)
 
-  /** يعبّي السعرين من نسبة ربح التصنيف. */
+  /** يعبّي سعر البيع من نسبة ربح التصنيف. */
   function autoPrice() {
     const markup = category?.defaultMarkupPercent ?? 50
-    const retail = round2(draft.cost * (1 + markup / 100))
-    setDraft((d) => ({
-      ...d,
-      priceRetail: retail,
-      priceWholesale: round2(retail * WHOLESALE_RATIO),
-    }))
+    setDraft((d) => withSellPrice(d, round2(draft.cost * (1 + markup / 100))))
   }
 
   function validate(): boolean {
@@ -129,7 +136,7 @@ export function PartForm({
       if (part) {
         const qtyDelta = draft.qty - part.qty
         // `qty` لا يُرسل أبداً: `updatePart` يُسقطه، والفرق يدخل كحركة تسوية.
-        await updatePart(part.id, { ...draft, qty: part.qty })
+        await updatePart(part.id, { ...withSellPrice(draft, draft.priceRetail), qty: part.qty })
         if (qtyDelta !== 0) {
           await applyMovement({
             partId: part.id,
@@ -142,7 +149,11 @@ export function PartForm({
         await audit(user, 'تعديل منتج', 'part', part.id, draft.name)
         toast('تم حفظ التعديلات')
       } else {
-        const id = await createPart({ ...draft, qty: 0, archived: false })
+        const id = await createPart({
+          ...withSellPrice(draft, draft.priceRetail),
+          qty: 0,
+          archived: false,
+        })
         if (draft.qty > 0) {
           await applyMovement({
             partId: id,
@@ -165,6 +176,8 @@ export function PartForm({
   }
 
   const margin = marginPercent(draft.priceRetail, draft.cost)
+  // الحدّ صفر يعني «بدون حد» — `reorderSuggestions` يتخطّاه، فلا عمود جديد ولا ترحيل.
+  const noLimit = draft.reorderPoint <= 0
   const canPrice = can('pricing.edit')
 
   return (
@@ -323,7 +336,7 @@ export function PartForm({
               </Button>
             )}
           </div>
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className="grid grid-cols-2 gap-3">
             <Field label="التكلفة" error={errors.cost} hint="تكلفة إنتاج البوكس">
               <Input
                 type="number"
@@ -335,7 +348,7 @@ export function PartForm({
                 onChange={(e) => set('cost', Number(e.target.value))}
               />
             </Field>
-            <Field label="سعر المحل (قطاعي)" error={errors.priceRetail}>
+            <Field label="سعر البيع" error={errors.priceRetail} hint="لكل العملاء">
               <Input
                 type="number"
                 step="0.01"
@@ -343,21 +356,17 @@ export function PartForm({
                 disabled={!canPrice}
                 className="tnum"
                 value={draft.priceRetail || ''}
-                onChange={(e) => set('priceRetail', Number(e.target.value))}
-              />
-            </Field>
-            <Field label="سعر الجملة" hint="للمحلات والكافيهات">
-              <Input
-                type="number"
-                step="0.01"
-                min="0"
-                disabled={!canPrice}
-                className="tnum"
-                value={draft.priceWholesale || ''}
-                onChange={(e) => set('priceWholesale', Number(e.target.value))}
+                onChange={(e) => setDraft((d) => withSellPrice(d, Number(e.target.value)))}
               />
             </Field>
           </div>
+          {oldWholesale !== null && canPrice && (
+            <p className="mt-2 rounded-lg bg-warn-soft px-3 py-2 text-[12px] text-warn">
+              كان للمحلات سعر جملة مختلف{' '}
+              <span className="tnum font-semibold">{money(oldWholesale)}</span>. الحفظ يجعل سعر
+              البيع أعلاه لكل العملاء.
+            </p>
+          )}
           {draft.priceRetail > 0 && canPrice && (
             <p className="mt-2 text-[13px] text-muted">
               الربح للبوكس{' '}
@@ -388,15 +397,30 @@ export function PartForm({
               onChange={(e) => set('qty', Number(e.target.value))}
             />
           </Field>
-          <Field label="حدّ التنبيه" hint="ينبّه حين ينزل الرصيد تحته">
-            <Input
-              type="number"
-              min="0"
-              className="tnum"
-              value={draft.reorderPoint}
-              onChange={(e) => set('reorderPoint', Number(e.target.value))}
-            />
-          </Field>
+          <div>
+            <Field
+              label="حدّ التنبيه"
+              hint={noLimit ? 'لا تنبيه حتى لو نفد' : 'ينبّه حين ينزل الرصيد تحته'}
+            >
+              <Input
+                type="number"
+                min="0"
+                className="tnum"
+                disabled={noLimit}
+                placeholder={noLimit ? 'بدون حد' : undefined}
+                value={noLimit ? '' : draft.reorderPoint}
+                onChange={(e) => set('reorderPoint', Number(e.target.value))}
+              />
+            </Field>
+            {/* خارج `Field` عمداً: الحقل `<label>`، والضغط على نصّه كان سيقلب المفتاح. */}
+            <div className="mt-2">
+              <Switch
+                checked={noLimit}
+                onChange={(v) => set('reorderPoint', v ? 0 : BLANK.reorderPoint)}
+                label="بدون حد"
+              />
+            </div>
+          </div>
           <Field label="كمية الإنتاج المعتادة">
             <Input
               type="number"

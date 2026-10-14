@@ -343,6 +343,9 @@ export function reorderSuggestions(
   const out: ReorderSuggestion[] = []
   for (const part of parts) {
     if (part.archived) continue
+    // حدّ صفر = «بدون حد» (خيار في نموذج المنتج): بوكس يُصنع حسب الطلب لا يُنبَّه
+    // عليه حتى لو نفد. كل تنبيهات النقص تمرّ من هنا — اللوحة والشارة والتوريد والمحاسب.
+    if (part.reorderPoint <= 0) continue
     const pending = onOrder.get(part.id) ?? 0
     const effectiveQty = part.qty + pending
     if (effectiveQty > part.reorderPoint) continue

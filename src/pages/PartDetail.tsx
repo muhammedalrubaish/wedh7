@@ -145,7 +145,7 @@ export default function PartDetail() {
           />
         ) : (
           <Stat
-            label="سعر المحل"
+            label="سعر البيع"
             value={money(part.priceRetail)}
             icon={<Coins className="size-5" />}
           />
@@ -235,8 +235,7 @@ export default function PartDetail() {
               ['كمية الإنتاج المعتادة', num(part.reorderQty)],
               ['أيام التجهيز', `${part.leadTimeDays} يوم`],
               ...(showCost ? [['التكلفة المرجّحة', money(part.cost)]] : []),
-              ['سعر المحل', money(part.priceRetail)],
-              ['سعر الجملة', money(part.priceWholesale)],
+              ['سعر البيع', money(part.priceRetail)],
               ['آخر تحديث', relative(part.updatedAt)],
             ].map(([k, val]) => (
               <div
