@@ -184,7 +184,7 @@ ${qr ? `<div class="qr"><img src="${qr}" alt="ZATCA QR"><p class="muted">رمز 
 ${invoice.notes ? `<p class="muted" style="white-space:pre-wrap;margin-top:6px">ملاحظة: ${esc(invoice.notes)}</p>` : ''}
 ${returnsBlock}
 ${invoice.status === 'refunded' ? '<p class="refunded">مسترجعة بالكامل</p>' : ''}
-<p class="foot">يُرجى حفظ الحلويات مبرّدة · المرتجع حسب الاتفاق مع المحل</p>
+<p class="foot">يُرجى حفظ الحلويات مبرّدة</p>
 </div></body></html>`
 
   openAndPrint(html)

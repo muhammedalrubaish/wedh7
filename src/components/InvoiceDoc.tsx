@@ -167,7 +167,7 @@ export function InvoiceDoc({
       )}
 
       <p className="mt-4 text-center text-[10px] text-gray-500">
-        يُرجى حفظ الحلويات مبرّدة · المرتجع حسب الاتفاق مع المحل
+        يُرجى حفظ الحلويات مبرّدة
       </p>
     </div>
   )
