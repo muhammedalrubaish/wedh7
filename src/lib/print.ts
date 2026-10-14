@@ -72,6 +72,42 @@ export const logoUrl = (variant: 'black' | 'color') =>
 export const logoImg = (variant: 'black' | 'color', cls = 'logo') =>
   `<img class="${cls}" src="${logoUrl(variant)}" alt="">`
 
+/* -------------------------------------------------------------------------- */
+/* ملوّن أو أبيض وأسود                                                          */
+/* -------------------------------------------------------------------------- */
+
+const PRINT_COLOR_KEY = 'wedh7.printColor'
+
+/**
+ * تفضيل لكل جهاز لا للمحل: الجوال الذي يحفظ PDF ويرسله ملوّن، وجهاز موصول بطابعة
+ * حرارية أبيض وأسود. الافتراضي ملوّن — أغلب الطباعة PDF يُرسل من الجوال.
+ */
+export function getPrintColor(): boolean {
+  try {
+    return localStorage.getItem(PRINT_COLOR_KEY) !== '0'
+  } catch {
+    return true
+  }
+}
+
+export function setPrintColor(color: boolean): void {
+  try {
+    localStorage.setItem(PRINT_COLOR_KEY, color ? '1' : '0')
+  } catch {
+    // تخزين محجوب (تصفّح خاص): يعود للافتراضي عند الفتح التالي — مقبول
+  }
+}
+
+/** شعار الورقة حسب التفضيل: الملوّن بألوانه، والأبيض والأسود بالنسخة العنابية مسودّةً. */
+export const printLogo = (color = getPrintColor()) => logoImg(color ? 'color' : 'black')
+
+/** لمسات الهوية على الفاتورة الملوّنة فقط؛ الأبيض والأسود يبقى بالأسود كله. */
+const INVOICE_COLOR = `
+  h1, .grand { color: #631322; }
+  .tag { border-color: #631322; color: #631322; }
+  th, .grand { border-color: #631322; }
+`
+
 /** `false` حين يحجب المتصفح النافذة — المستدعي يخبر المستخدم بدل أن لا يحدث شيء. */
 export function openAndPrint(html: string, features = 'width=420,height=700'): boolean {
   const win = window.open('', '_blank', features)
@@ -157,9 +193,9 @@ export async function printInvoice(
 
   const html = `<!doctype html><html dir="rtl" lang="ar"><head><meta charset="utf-8">
 <title>${esc(invoice.number)}</title>
-<style>${STYLE}</style></head><body><div class="wrap">
+<style>${STYLE}${getPrintColor() ? INVOICE_COLOR : ''}</style></head><body><div class="wrap">
 <header>
-  ${logoImg('black')}
+  ${printLogo()}
   <h1>${esc(settings.shopName)}</h1>
   ${settings.shopNameEn ? `<p class="muted">${esc(settings.shopNameEn)}</p>` : ''}
   <p class="muted">${esc(settings.address)}</p>
@@ -203,9 +239,9 @@ export function printReturn(note: ReturnNote, settings: Settings): void {
 
   const html = `<!doctype html><html dir="rtl" lang="ar"><head><meta charset="utf-8">
 <title>${esc(note.number)}</title>
-<style>${STYLE}</style></head><body><div class="wrap">
+<style>${STYLE}${getPrintColor() ? INVOICE_COLOR : ''}</style></head><body><div class="wrap">
 <header>
-  ${logoImg('black')}
+  ${printLogo()}
   <h1>${esc(settings.shopName)}</h1>
   <p class="muted">${esc(settings.address)}</p>
   <p class="muted">هاتف ${esc(settings.phone)}</p>

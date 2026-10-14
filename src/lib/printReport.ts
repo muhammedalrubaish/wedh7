@@ -1,5 +1,5 @@
 import { date, dateTime, money, num } from './format'
-import { esc, logoImg, openAndPrint } from './print'
+import { esc, getPrintColor, openAndPrint, printLogo } from './print'
 import type {
   CustomerPerformance,
   PartPerformance,
@@ -33,10 +33,10 @@ const STYLE = `
   @page { size: A4; margin: 14mm 12mm; }
   * { box-sizing: border-box; }
   body { font-family: "IBM Plex Sans Arabic", system-ui, sans-serif; margin: 0; color: #111; font-size: 11px; }
-  header { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; border-bottom: 2px solid #702928; padding-bottom: 8px; margin-bottom: 12px; }
+  header { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; border-bottom: 2px solid #631322; padding-bottom: 8px; margin-bottom: 12px; }
   .head { display: flex; align-items: center; gap: 12px; }
   .logo { width: 34mm; height: auto; }
-  h1 { font-size: 18px; margin: 0; color: #702928; }
+  h1 { font-size: 18px; margin: 0; color: #631322; }
   h2 { font-size: 13px; margin: 16px 0 6px; color: #4c1e21; break-after: avoid; }
   .muted { color: #555; font-size: 10px; margin: 2px 0; }
   .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
@@ -54,6 +54,13 @@ const STYLE = `
   .unpaid { color: #a40000; border-color: #a40000; }
   .note { margin-top: 14px; padding: 6px 8px; border: 1px dashed #bbb; border-radius: 6px; color: #444; font-size: 10px; }
   .empty { color: #777; font-size: 10px; padding: 4px 0; }
+`
+
+/** أبيض وأسود: العناوين والحدود بالأسود، وخلفية رأس الجدول رمادي فاتح يُطبع بلا حبر ملوّن. */
+const MONO = `
+  header { border-bottom-color: #000; }
+  h1, h2 { color: #000; }
+  th { background: #eee; }
 `
 
 const cell = (v: string, n = false) => `<td${n ? ' class="n"' : ''}>${v}</td>`
@@ -219,10 +226,10 @@ export function printReport(data: ReportPrintData, settings: Settings): boolean 
 
   const html = `<!doctype html><html dir="rtl" lang="ar"><head><meta charset="utf-8">
 <title>${esc(data.title)} — ${esc(settings.shopName)}</title>
-<style>${STYLE}</style></head><body>
+<style>${STYLE}${getPrintColor() ? '' : MONO}</style></head><body>
 <header>
   <div class="head">
-    ${logoImg('color')}
+    ${printLogo()}
     <div>
       <h1>${esc(settings.shopName)} — ${esc(data.title)}</h1>
       <p class="muted">من ${esc(date(data.from))} إلى ${esc(date(data.to))}</p>

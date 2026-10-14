@@ -1,6 +1,17 @@
 import { useEffect, useState } from 'react'
-import { AtSign, KeyRound, ShieldCheck, UserRound, Vibrate } from 'lucide-react'
-import { Badge, Button, Card, CardHeader, Field, Input, Switch, useToast } from '@/components/ui'
+import { AtSign, KeyRound, Printer, ShieldCheck, UserRound, Vibrate } from 'lucide-react'
+import {
+  Badge,
+  Button,
+  Card,
+  CardHeader,
+  Field,
+  Input,
+  Switch,
+  Tabs,
+  useToast,
+} from '@/components/ui'
+import { getPrintColor, logoUrl, setPrintColor } from '@/lib/print'
 import { cloudAuth, currentEmail, updateEmail, updatePassword } from '@/lib/auth'
 import { ROLE_LABELS } from '@/lib/permissions'
 import { useApp } from '@/store/app'
@@ -72,6 +83,8 @@ export default function Account() {
       )}
 
       <FeedbackCard />
+
+      <PrintCard />
 
       <p className="flex items-start gap-2 rounded-xl border border-ok/30 bg-ok-soft/50 px-3 py-2.5 text-[12px] leading-5 text-muted">
         <ShieldCheck className="mt-0.5 size-4 shrink-0 text-ok" />
@@ -242,6 +255,51 @@ function FeedbackCard() {
         <p className="text-[12px] leading-5 text-muted">
           الصوت يتبع مفتاح الصامت في الجوال. والاهتزاز في الآيفون ميزة غير رسمية من النظام قد لا
           تعمل في بعض الإصدارات — إن لم تشعر به فالسبب الجهاز لا الإعداد.
+        </p>
+      </div>
+    </Card>
+  )
+}
+
+/**
+ * ملوّن أو أبيض وأسود — لهذا الجهاز فقط: الجوال الذي يرسل PDF غير الجهاز الموصول
+ * بطابعة حرارية. الفواتير وإشعارات المرتجع والتقرير التفصيلي كلها تتبعه.
+ */
+function PrintCard() {
+  const [color, setColor] = useState(getPrintColor)
+
+  return (
+    <Card>
+      <CardHeader
+        title="الطباعة"
+        subtitle="الفواتير والمرتجعات والتقارير — لهذا الجهاز فقط"
+        icon={<Printer className="size-[18px]" />}
+      />
+      <div className="space-y-3 p-4">
+        <Tabs
+          value={color ? 'color' : 'mono'}
+          onChange={(v) => {
+            setColor(v === 'color')
+            setPrintColor(v === 'color')
+          }}
+          items={[
+            { value: 'color', label: 'ملوّنة' },
+            { value: 'mono', label: 'أبيض وأسود' },
+          ]}
+        />
+        {/* معاينة الشعار كما سيُطبع: القرار بالعين لا بالوصف. خلفية بيضاء دائماً لأن
+            الورق أبيض حتى في الوضع الداكن. */}
+        <div className="grid place-items-center rounded-xl border border-border bg-white p-4">
+          <img
+            src={logoUrl(color ? 'color' : 'black')}
+            alt="شعار الطباعة"
+            className="h-12 w-auto"
+          />
+        </div>
+        <p className="text-[12px] leading-5 text-muted">
+          {color
+            ? 'الشعار بألوانه ولمسات عنابية — للـPDF الذي يُرسل للمحل وللطابعة الملوّنة.'
+            : 'كل شيء بالأسود — للطابعة الحرارية وطابعة الحبر الأسود، أوضح وأوفر حبراً.'}
         </p>
       </div>
     </Card>
