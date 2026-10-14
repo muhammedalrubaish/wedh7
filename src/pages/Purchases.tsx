@@ -114,40 +114,56 @@ export default function Purchases() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-bold tracking-tight">طلبات التوريد</h1>
-          <p className="mt-0.5 text-sm text-muted">
-            {suggestions.length > 0
-              ? `${suggestions.length} صنف تحت حدّ التنبيه`
-              : 'كل الأصناف فوق حدّ التنبيه'}
-          </p>
-        </div>
-        {can('purchase.edit') && (
-          <div className="flex gap-2">
-            <Button variant="soft" onClick={createSuggested} disabled={suggestions.length === 0}>
-              <Sparkles className="size-4" />
-              طلب مقترح
-            </Button>
-            <Button variant="primary" onClick={() => setCreating(true)}>
-              <Plus className="size-4" />
-              طلب جديد
-            </Button>
-          </div>
-        )}
+      <div>
+        <h1 className="text-xl font-bold tracking-tight">طلبات التوريد</h1>
+        <p className="mt-0.5 text-sm text-muted">
+          {suggestions.length > 0
+            ? `${suggestions.length} صنف تحت حدّ التنبيه`
+            : 'كل الأصناف فوق حدّ التنبيه'}
+        </p>
       </div>
 
-      <Tabs
-        value={filter}
-        onChange={setFilter}
-        items={[
-          { value: 'open', label: 'المفتوحة' },
-          { value: 'draft', label: 'مسودات' },
-          { value: 'ordered', label: 'مطلوبة' },
-          { value: 'received', label: 'مستلمة' },
-          { value: 'all', label: 'الكل' },
-        ]}
-      />
+      {/* الحالات والزرّان في سطر واحد بطلب العميل. على الجوال لا يتسع الزرّان بنصّهما
+          بجانب خمس حالات، فيصيران أيقونتين والاسم في `aria-label`؛ ويعود النص من sm. */}
+      <div className="flex items-center gap-1.5 sm:gap-2">
+        <Tabs
+          value={filter}
+          onChange={setFilter}
+          className="min-w-0 flex-1 justify-between gap-0 [&>button]:px-1.5 [&>button]:text-[12px] [&>button]:whitespace-nowrap sm:flex-none sm:gap-1 sm:[&>button]:px-3 sm:[&>button]:text-[13px]"
+          items={[
+            { value: 'open', label: 'المفتوحة' },
+            { value: 'draft', label: 'مسودات' },
+            { value: 'ordered', label: 'مطلوبة' },
+            { value: 'received', label: 'مستلمة' },
+            { value: 'all', label: 'الكل' },
+          ]}
+        />
+        {can('purchase.edit') && (
+          <>
+            <Button
+              variant="soft"
+              className="shrink-0 max-sm:w-9 max-sm:px-0 max-sm:h-9 max-sm:justify-center sm:ms-auto"
+              onClick={createSuggested}
+              disabled={suggestions.length === 0}
+              aria-label="طلب مقترح"
+              title="طلب مقترح من الأصناف تحت حدّ التنبيه"
+            >
+              <Sparkles className="size-4" />
+              <span className="hidden sm:inline">طلب مقترح</span>
+            </Button>
+            <Button
+              variant="primary"
+              className="shrink-0 max-sm:w-9 max-sm:px-0 max-sm:h-9 max-sm:justify-center"
+              onClick={() => setCreating(true)}
+              aria-label="طلب جديد"
+              title="طلب جديد"
+            >
+              <Plus className="size-4" />
+              <span className="hidden sm:inline">طلب جديد</span>
+            </Button>
+          </>
+        )}
+      </div>
 
       {rows.length === 0 ? (
         <Card>

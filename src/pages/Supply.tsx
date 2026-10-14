@@ -19,14 +19,17 @@ export default function Supply() {
 
   return (
     <div className="space-y-4">
-      <Tabs
-        value={tab}
-        onChange={(t) => setParams(t === 'orders' ? {} : { tab: t }, { replace: true })}
-        items={[
-          { value: 'orders', label: 'طلبات التوريد' },
-          { value: 'suppliers', label: 'الموردون' },
-        ]}
-      />
+      {/* في المنتصف بطلب العميل: مفتاح بين شاشتين، لا تبويب ضمن محتوى إحداهما. */}
+      <div className="flex justify-center">
+        <Tabs
+          value={tab}
+          onChange={(t) => setParams(t === 'orders' ? {} : { tab: t }, { replace: true })}
+          items={[
+            { value: 'orders', label: 'طلبات التوريد' },
+            { value: 'suppliers', label: 'الموردون' },
+          ]}
+        />
+      </div>
       <Suspense fallback={<Splash compact />}>
         {tab === 'orders' ? <Purchases /> : <Suppliers />}
       </Suspense>
