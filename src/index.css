@@ -570,6 +570,16 @@
 
    `-webkit-touch-callout` لا يعرفه إلا iOS: الكمبيوتر يحتفظ بأيقونة التقويم.
    --------------------------------------------------------------------------- */
+input[type='date'],
+input[type='datetime-local'],
+input[type='month'],
+input[type='time'] {
+  /* لكل المتصفحات لا لـ iOS وحده: إن فات كشف iOS أدناه (متصفح داخل تطبيق مثلاً)
+     يبقى العرض محصوراً في الحاوية. */
+  min-width: 0;
+  max-width: 100%;
+}
+
 @supports (-webkit-touch-callout: none) {
   input[type='date'],
   input[type='datetime-local'],

@@ -203,7 +203,9 @@ export function Field({
   className?: string
 }) {
   return (
-    <label className={cn('block', className)}>
+    // `min-w-0`: الحقل غالباً خلية شبكة، وخلية الشبكة لا تضيق عن أعرض ما فيها؛ خانة
+    // تاريخ عرضها الذاتي كبير كانت تمدّ الخلية خارج النافذة على الآيفون.
+    <label className={cn('block min-w-0', className)}>
       <span className="mb-1.5 block text-[13px] font-medium text-muted">{label}</span>
       {children}
       {error ? (

@@ -112,7 +112,7 @@ export default function PurchaseBills() {
       if (user)
         await audit(
           user,
-          'حذف فاتورة مشتريات',
+          'حذف مصروف',
           'purchase_bill',
           bill.id,
           `${date(bill.purchasedAt)} — ${money(bill.total)}`,
@@ -129,13 +129,14 @@ export default function PurchaseBills() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold tracking-tight">فواتير المشتريات</h1>
-          <p className="mt-0.5 text-sm text-muted">مكونات وتغليف وأدوات ومصاريف المعمل</p>
+          {/* «المصروفات» اسم الصفحة بطلب العميل؛ في الكود والقاعدة بقيت purchase_bills. */}
+          <h1 className="text-xl font-bold tracking-tight">المصروفات</h1>
+          <p className="mt-0.5 text-sm text-muted">مكونات وتغليف ومصاريف وكل ما يصرفه المعمل</p>
         </div>
         {editable && (
           <Button variant="primary" onClick={() => setCreating(true)}>
             <Plus className="size-4" />
-            فاتورة مشتريات
+            مصروف جديد
           </Button>
         )}
       </div>
@@ -186,7 +187,7 @@ export default function PurchaseBills() {
           </Card>
 
           <Stat
-            label="مشتريات الشهر"
+            label="مصروفات الشهر"
             value={money(summary.total)}
             sub={`${num(summary.bills)} فاتورة`}
             icon={<Receipt className="size-5" />}
@@ -207,7 +208,7 @@ export default function PurchaseBills() {
             <Card>
               <EmptyState
                 icon={<Receipt className="size-6" />}
-                title="لا فواتير مشتريات في هذا الشهر"
+                title="لا مصروفات في هذا الشهر"
                 description={
                   editable
                     ? 'سجّل ما اشتريته للمعمل: قشطة، كرتون، فرن، إيجار… ليظهر مجموع الصرف هنا.'
@@ -217,7 +218,7 @@ export default function PurchaseBills() {
                   editable && (
                     <Button variant="primary" onClick={() => setCreating(true)}>
                       <Plus className="size-4" />
-                      فاتورة مشتريات
+                      مصروف جديد
                     </Button>
                   )
                 }
@@ -271,7 +272,7 @@ export default function PurchaseBills() {
       <Modal
         open={Boolean(removing)}
         onClose={() => setRemoving(null)}
-        title="حذف فاتورة المشتريات؟"
+        title="حذف هذا المصروف؟"
         size="sm"
         footer={
           <>
@@ -363,7 +364,7 @@ function ItemsList({
         <EmptyState
           icon={<Receipt className="size-6" />}
           title="لا أصناف بعد"
-          description="الأصناف تُضاف من نافذة فاتورة المشتريات نفسها أول مرة تشتريها."
+          description="الأصناف تُضاف من نافذة «مصروف جديد» نفسها أول مرة تشتريها."
         />
       </Card>
     )
@@ -617,12 +618,12 @@ function BillForm({ onClose }: { onClose: () => void }) {
       if (user)
         await audit(
           user,
-          'فاتورة مشتريات',
+          'مصروف جديد',
           'purchase_bill',
           bill.id,
           `${bill.supplierName ?? 'بلا مورد'} — ${money(bill.total)}`,
         )
-      toast(`تم حفظ فاتورة المشتريات — ${money(bill.total)}`)
+      toast(`تم حفظ المصروف — ${money(bill.total)}`)
       onClose()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'تعذّر الحفظ')
@@ -635,8 +636,8 @@ function BillForm({ onClose }: { onClose: () => void }) {
     <Modal
       open
       onClose={onClose}
-      title="فاتورة مشتريات"
-      subtitle="ما اشتريته للمعمل: النوع والكمية والسعر"
+      title="مصروف جديد"
+      subtitle="ما صرفته على المعمل: النوع والكمية والسعر"
       size="lg"
       footer={
         <div className="flex w-full items-center justify-between gap-3">

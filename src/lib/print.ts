@@ -6,7 +6,7 @@ import type { Invoice, ReturnNote, Settings } from './types'
 /** ما يهمّ المحل على فاتورته: هل دفع أم لا — لا وسيلة الدفع. */
 const paidLabel = (inv: Invoice) => (inv.status === 'unpaid' ? 'لم يتم السداد' : 'تم السداد')
 
-function esc(s: string): string {
+export function esc(s: string): string {
   return s.replace(
     /[&<>"']/g,
     (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!,
@@ -39,13 +39,15 @@ const STYLE = `
   .box { border: 1px solid #999; border-radius: 4px; padding: 4px 6px; margin-top: 8px; font-size: 10px; }
 `
 
-function openAndPrint(html: string): void {
-  const win = window.open('', '_blank', 'width=420,height=700')
-  if (!win) return
+/** `false` حين يحجب المتصفح النافذة — المستدعي يخبر المستخدم بدل أن لا يحدث شيء. */
+export function openAndPrint(html: string, features = 'width=420,height=700'): boolean {
+  const win = window.open('', '_blank', features)
+  if (!win) return false
   win.document.write(html)
   win.document.close()
   win.focus()
   setTimeout(() => win.print(), 400)
+  return true
 }
 
 /**

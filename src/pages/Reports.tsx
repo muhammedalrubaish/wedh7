@@ -14,6 +14,7 @@ import {
 } from 'recharts'
 import {
   Download,
+  Printer,
   CakeSlice,
   MessageCircle,
   PieChart as PieIcon,
@@ -23,7 +24,8 @@ import {
   Undo2,
   Users2,
 } from 'lucide-react'
-import { Badge, Button, Card, CardHeader, EmptyState, Tabs, cn } from '@/components/ui'
+import { Badge, Button, Card, CardHeader, EmptyState, Tabs, cn, useToast } from '@/components/ui'
+import { printReport } from '@/lib/printReport'
 import { Stat } from '@/components/Stat'
 import { db } from '@/lib/db'
 import {
@@ -98,6 +100,7 @@ function calendarMonth(offset: number): { from: number; to: number } {
 
 export default function Reports() {
   const { can, settings } = useApp()
+  const toast = useToast()
   const invoices = useInvoices()
   const returns = useReturns()
   const customers = useCustomers()
@@ -211,6 +214,29 @@ export default function Reports() {
   // `to` نهاية اليوم شاملة، والملخّص يأخذ نهاية مفتوحة — فيُزاد ميلي ثانية.
   const spend = useMemo(() => purchasesSummary(bills, from, to + 1), [bills, from, to])
   const showSpend = showMoney && can('purchase.view') && spend.bills > 0
+
+  /** كل الأرقام لا العشرة الأولى فقط: «تفصيلي» يعني أن الورقة تغني عن الشاشة. */
+  function printDetailed() {
+    const opened = printReport(
+      {
+        title: `التقرير ${PERIOD_LABEL[period]}`,
+        from,
+        to,
+        showMoney,
+        summary: current,
+        customers: perCustomer,
+        parts: topParts(invoices, returns, from, to, Number.MAX_SAFE_INTEGER),
+        categories: byCategory,
+        staff: byStaff,
+        spend: showMoney && can('purchase.view') ? spend : null,
+        invoices: invoices
+          .filter((i) => i.createdAt >= from && i.createdAt <= to)
+          .sort((a, b) => a.createdAt - b.createdAt),
+      },
+      settings,
+    )
+    if (!opened) toast('المتصفح منع نافذة الطباعة — اسمح بالنوافذ المنبثقة لهذا الموقع.', 'warn')
+  }
 
   function exportCsv() {
     const rows: string[][] = [
@@ -329,6 +355,10 @@ export default function Reports() {
               />
             </div>
           )}
+          <Button variant="secondary" onClick={printDetailed}>
+            <Printer className="size-4" />
+            طباعة تفصيلية
+          </Button>
           <Button variant="secondary" onClick={exportCsv}>
             <Download className="size-4" />
             تصدير CSV
@@ -390,14 +420,12 @@ export default function Reports() {
         <Card className="p-4">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0">
-              <p className="text-[13px] text-muted">مشتريات المعمل في الفترة</p>
+              <p className="text-[13px] text-muted">مصروفات المعمل في الفترة</p>
               <p className="tnum mt-1 text-xl font-bold break-words">{money(spend.total)}</p>
-              <p className="tnum mt-0.5 text-[12px] text-muted">
-                {num(spend.bills)} فاتورة مشتريات
-              </p>
+              <p className="tnum mt-0.5 text-[12px] text-muted">{num(spend.bills)} مصروف</p>
             </div>
             <div className="min-w-0 text-left">
-              <p className="text-[13px] text-muted">المبيعات ناقص المشتريات</p>
+              <p className="text-[13px] text-muted">المبيعات ناقص المصروفات</p>
               <p
                 className={cn(
                   'tnum mt-1 text-xl font-bold break-words',

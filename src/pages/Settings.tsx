@@ -443,7 +443,7 @@ export default function SettingsPage() {
           <div className="space-y-2 border-t border-border px-4 py-3 text-[12px] leading-5 text-muted">
             <p>
               النسخة تُسحب كاملة من قاعدة البيانات: المنتجات والمحلات والفواتير والمرتجعات ودفتر
-              الحركة كله وفواتير المشتريات. احفظ الملف في مكان لا يصله غيرك.
+              الحركة كله والمصروفات. احفظ الملف في مكان لا يصله غيرك.
             </p>
             <p>
               استعادة الملف إلى قاعدة البيانات غير متاحة من هذه الشاشة بعد. الملف نفسه كامل ومحفوظ
@@ -452,8 +452,7 @@ export default function SettingsPage() {
             {lastBackup && (
               <p className="tnum rounded-lg bg-surface-2 px-2.5 py-1.5">
                 آخر نسخة: {lastBackup.invoices ?? 0} فاتورة · {lastBackup.invoiceLines ?? 0} بند ·{' '}
-                {lastBackup.movements ?? 0} حركة مخزون · {lastBackup.purchaseBills ?? 0} فاتورة
-                مشتريات
+                {lastBackup.movements ?? 0} حركة مخزون · {lastBackup.purchaseBills ?? 0} مصروف
               </p>
             )}
           </div>
@@ -509,7 +508,7 @@ export default function SettingsPage() {
           {lastBackup && (
             <p className="tnum rounded-lg bg-surface-2 px-2.5 py-1.5 text-[12px] text-muted">
               فيها {lastBackup.invoices ?? 0} فاتورة · {lastBackup.movements ?? 0} حركة مخزون ·{' '}
-              {lastBackup.purchaseBills ?? 0} فاتورة مشتريات
+              {lastBackup.purchaseBills ?? 0} مصروف
             </p>
           )}
           <p className="text-[12px] text-danger">
