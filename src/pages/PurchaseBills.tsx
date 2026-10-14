@@ -53,6 +53,14 @@ function groupTone(name: string): Tone {
   return TONES[h % TONES.length]
 }
 
+/**
+ * عنوان بطاقة المصروف: المورد إن وُجد، وإلا البند الرئيسي — «رواتب» تقول أين ذهب
+ * المال، و«بلا مورد» لا تقول شيئاً. مصروف بأكثر من بند رئيسي يُذكرها كلها.
+ */
+const billTitle = (bill: PurchaseBill): string =>
+  bill.supplierName ??
+  ([...new Set(bill.lines.map((l) => groupName(l.kind)))].join(' · ') || 'بلا مورد')
+
 const monthStart = (ts: number) => {
   const d = new Date(ts)
   return new Date(d.getFullYear(), d.getMonth(), 1).getTime()
@@ -289,7 +297,7 @@ export default function PurchaseBills() {
       >
         {removing && (
           <p className="text-sm leading-6 text-muted">
-            فاتورة {removing.supplierName ?? 'بلا مورد'} بتاريخ {date(removing.purchasedAt)} بمبلغ{' '}
+            فاتورة {billTitle(removing)} بتاريخ {date(removing.purchasedAt)} بمبلغ{' '}
             <span className="tnum font-semibold text-text">{money(removing.total)}</span>. لتصحيح
             خطأ فيها احذفها ثم أدخلها من جديد.
           </p>
@@ -314,7 +322,7 @@ function BillCard({
       className={cn('p-4', onEdit && 'cursor-pointer transition-colors hover:border-brand')}
       role={onEdit ? 'button' : undefined}
       tabIndex={onEdit ? 0 : undefined}
-      aria-label={onEdit ? `تعديل مصروف ${bill.supplierName ?? 'بلا مورد'}` : undefined}
+      aria-label={onEdit ? `تعديل مصروف ${billTitle(bill)}` : undefined}
       onClick={onEdit}
       onKeyDown={(e) => {
         if (onEdit && (e.key === 'Enter' || e.key === ' ')) {
@@ -325,7 +333,7 @@ function BillCard({
     >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="font-semibold break-words">{bill.supplierName ?? 'بلا مورد'}</p>
+          <p className="font-semibold break-words">{billTitle(bill)}</p>
           <p className="tnum mt-0.5 text-[12px] text-muted">
             {date(bill.purchasedAt)}
             {bill.ref && ` · فاتورة المورد ${bill.ref}`}
@@ -803,7 +811,7 @@ function BillForm({ onClose, bill }: { onClose: () => void; bill?: PurchaseBill 
           bill ? 'تعديل مصروف' : 'مصروف جديد',
           'purchase_bill',
           saved.id,
-          `${saved.supplierName ?? 'بلا مورد'} — ${bill ? `${money(bill.total)} ← ` : ''}${money(saved.total)}`,
+          `${billTitle(saved)} — ${bill ? `${money(bill.total)} ← ` : ''}${money(saved.total)}`,
         )
       toast(`${bill ? 'تم حفظ التعديل' : 'تم حفظ المصروف'} — ${money(saved.total)}`)
       onClose()
