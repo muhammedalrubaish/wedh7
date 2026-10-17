@@ -36,6 +36,7 @@ import {
 } from '@/lib/accountant'
 import { money, num, relative } from '@/lib/format'
 import { useApp } from '@/store/app'
+import { cloudEnabled } from '@/lib/supabase'
 import {
   useActiveParts,
   useCategories,
@@ -93,7 +94,8 @@ export default function Accountant() {
   const [loadingBalance, setLoadingBalance] = useState(false)
 
   const connected = settings.aiProvider !== 'none'
-  const viaServer = connected && settings.aiApiKey.trim().length === 0
+  // يطابق `askAccountant`: في وضع المحل الخادم دائماً، ولو بقي مفتاح قديم في المتصفح.
+  const viaServer = connected && (cloudEnabled || settings.aiApiKey.trim().length === 0)
 
   const refreshBalance = useCallback(async () => {
     if (!connected) return

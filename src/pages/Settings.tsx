@@ -5,6 +5,7 @@ import {
   Bot,
   Database,
   Download,
+  KeyRound,
   RefreshCw,
   Save,
   Share2,
@@ -25,6 +26,15 @@ import {
   useToast,
 } from '@/components/ui'
 import { exportAll, importAll, wipe } from '@/lib/db'
+import {
+  audit,
+  clearAiKey,
+  fetchAiKeyStatus,
+  saveAiKey,
+  type AiKeyProvider,
+  type AiKeyStatus,
+} from '@/lib/repo'
+import { relative } from '@/lib/format'
 import { cloudAuth } from '@/lib/auth'
 import { fetchBackup } from '@/lib/mirror'
 import { markBackedUp } from '@/lib/backupReminder'
@@ -319,26 +329,33 @@ export default function SettingsPage() {
           icon={<Bot className="size-[18px]" />}
         />
         <div className="space-y-3 p-4">
-          <div className="flex items-start gap-2 rounded-xl border border-ok/30 bg-ok-soft/40 px-3 py-2.5 text-[12px] leading-5">
-            <ShieldCheck className="mt-0.5 size-4 shrink-0 text-ok" />
-            <span>
-              <strong>الوضع الموصى به:</strong> اترك حقل المفتاح فارغاً. الطلب يمر عبر{' '}
-              <span className="tnum">/api/ai</span> على الخادم، والمفتاح يُضبط مرة واحدة في إعدادات
-              Vercel باسم <span className="tnum">DEEPSEEK_API_KEY</span> ولا يصل المتصفح إطلاقاً.
-            </span>
-          </div>
+          {/* في وضع المحل المفتاح يُحفظ من هنا في القاعدة ويستعمله الخادم وحده — بطلب العميل:
+              صاحب المعمل لا يدخل Vercel. التحذيران أدناه لوضع العرض وحده، حيث لا قاعدة. */}
+          {!cloudAuth && (
+            <>
+              <div className="flex items-start gap-2 rounded-xl border border-ok/30 bg-ok-soft/40 px-3 py-2.5 text-[12px] leading-5">
+                <ShieldCheck className="mt-0.5 size-4 shrink-0 text-ok" />
+                <span>
+                  <strong>الوضع الموصى به:</strong> اترك حقل المفتاح فارغاً. الطلب يمر عبر{' '}
+                  <span className="tnum">/api/ai</span> على الخادم، والمفتاح يُضبط مرة واحدة في
+                  إعدادات Vercel باسم <span className="tnum">DEEPSEEK_API_KEY</span> ولا يصل المتصفح
+                  إطلاقاً.
+                </span>
+              </div>
 
-          <div className="flex items-start gap-2 rounded-xl border border-danger/30 bg-danger-soft/40 px-3 py-2.5 text-[12px] leading-5">
-            <AlertTriangle className="mt-0.5 size-4 shrink-0 text-danger" />
-            <span>
-              <strong className="text-danger">إذا عبّيت المفتاح هنا:</strong> يُخزَّن في متصفح هذا
-              الجهاز ويُرسَل من الصفحة مباشرة، فيقدر أي شخص يفتح أدوات المطوّر يقرأه ويصرف على
-              حسابك. استخدمه على جهازك للتجربة فقط. ولاحظ أن ديب سيك قد ترفض النداء من المتصفح
-              (CORS) — مسار الخادم هو الموثوق معها.
-            </span>
-          </div>
+              <div className="flex items-start gap-2 rounded-xl border border-danger/30 bg-danger-soft/40 px-3 py-2.5 text-[12px] leading-5">
+                <AlertTriangle className="mt-0.5 size-4 shrink-0 text-danger" />
+                <span>
+                  <strong className="text-danger">إذا عبّيت المفتاح هنا:</strong> يُخزَّن في متصفح
+                  هذا الجهاز ويُرسَل من الصفحة مباشرة، فيقدر أي شخص يفتح أدوات المطوّر يقرأه ويصرف
+                  على حسابك. استخدمه على جهازك للتجربة فقط. ولاحظ أن ديب سيك قد ترفض النداء من
+                  المتصفح (CORS) — مسار الخادم هو الموثوق معها.
+                </span>
+              </div>
+            </>
+          )}
 
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className={cloudAuth ? 'grid gap-3 sm:grid-cols-2' : 'grid gap-3 sm:grid-cols-3'}>
             <Field label="المزوّد">
               <Select
                 value={draft.aiProvider}
@@ -369,25 +386,30 @@ export default function SettingsPage() {
                 ))}
               </Select>
             </Field>
-            <Field
-              label="مفتاح API (اختياري)"
-              hint={
-                draft.aiApiKey.trim()
-                  ? 'مفعّل — الطلب يخرج من المتصفح والمفتاح مكشوف'
-                  : 'فارغ = الطلب يمر عبر الخادم والمفتاح محمي'
-              }
-            >
-              <Input
-                type="password"
-                dir="ltr"
-                className="tnum"
-                placeholder="اتركه فارغاً (موصى به)"
-                disabled={draft.aiProvider === 'none'}
-                value={draft.aiApiKey}
-                onChange={(e) => set('aiApiKey', e.target.value)}
-              />
-            </Field>
+            {!cloudAuth && (
+              <Field
+                label="مفتاح API (اختياري)"
+                hint={
+                  draft.aiApiKey.trim()
+                    ? 'مفعّل — الطلب يخرج من المتصفح والمفتاح مكشوف'
+                    : 'فارغ = الطلب يمر عبر الخادم والمفتاح محمي'
+                }
+              >
+                <Input
+                  type="password"
+                  dir="ltr"
+                  className="tnum"
+                  placeholder="اتركه فارغاً (موصى به)"
+                  disabled={draft.aiProvider === 'none'}
+                  value={draft.aiApiKey}
+                  onChange={(e) => set('aiApiKey', e.target.value)}
+                />
+              </Field>
+            )}
           </div>
+
+          {/* بعد اختيار المزوّد لا قبله: المفتاح مفتاحُ المزوّد المختار. */}
+          {cloudAuth && <AiKeyBox provider={draft.aiProvider} />}
 
           <p className="text-[12px] text-muted">
             حتى مع تعطيل المزوّد، صفحة المحاسب تعطيك تحليلاً محلياً كاملاً محسوباً من بياناتك بدون
@@ -539,6 +561,170 @@ export default function SettingsPage() {
           يمكن التراجع. نزّل نسخة احتياطية أولاً إذا كانت البيانات مهمة.
         </p>
       </Modal>
+    </div>
+  )
+}
+
+const PROVIDER_PAGE: Record<AiKeyProvider, { name: string; url: string; label: string }> = {
+  deepseek: {
+    name: 'DeepSeek',
+    url: 'https://platform.deepseek.com/api_keys',
+    label: 'platform.deepseek.com',
+  },
+  anthropic: {
+    name: 'Anthropic',
+    url: 'https://console.anthropic.com/settings/keys',
+    label: 'console.anthropic.com',
+  },
+}
+
+/**
+ * مفتاح المحاسب يُلصق هنا ويُحفظ في قاعدة المعمل، بلا Vercel ولا خروج من الموقع.
+ * الحفظ فوري ومستقل عن زر «حفظ» الإعدادات: هو سرّ يُرسَل إلى الخادم لا حقلٌ في المسودة،
+ * والخانة تُفرَّغ بعده فلا يبقى المفتاح في الصفحة.
+ */
+function AiKeyBox({ provider }: { provider: Provider }) {
+  const { user, can } = useApp()
+  const toast = useToast()
+  // `undefined` = يُحمَّل؛ `null` = القاعدة بلا ترحيل المفتاح بعد.
+  const [status, setStatus] = useState<AiKeyStatus[] | null | undefined>(undefined)
+  const [key, setKey] = useState('')
+  const [busy, setBusy] = useState<'save' | 'clear' | null>(null)
+  const manage = can('settings.manage')
+
+  const load = async () => {
+    try {
+      setStatus(await fetchAiKeyStatus())
+    } catch {
+      setStatus([])
+    }
+  }
+  useEffect(() => {
+    void load()
+  }, [])
+
+  if (provider === 'none') {
+    return (
+      <p className="rounded-xl bg-surface-2 px-3 py-2.5 text-[12px] leading-5 text-muted">
+        اختر المزوّد أدناه ثم احفظ الإعدادات، ليظهر هنا مكان مفتاحه.
+      </p>
+    )
+  }
+
+  const page = PROVIDER_PAGE[provider]
+  const saved = status?.find((s) => s.provider === provider)
+
+  async function save() {
+    setBusy('save')
+    try {
+      const hint = await saveAiKey(provider as AiKeyProvider, key)
+      setKey('')
+      if (user) await audit(user, 'حفظ مفتاح المحاسب', 'settings', provider, `${page.name} ${hint}`)
+      toast('تحقّقنا من المفتاح عند المزوّد وحُفظ — المحاسب جاهز')
+      await load()
+    } catch (err) {
+      toast(err instanceof Error ? err.message : 'تعذّر حفظ المفتاح', 'error')
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  async function clear() {
+    setBusy('clear')
+    try {
+      await clearAiKey(provider as AiKeyProvider)
+      if (user) await audit(user, 'حذف مفتاح المحاسب', 'settings', provider, page.name)
+      toast('حُذف المفتاح — المحاسب يعود للتحليل المحلي')
+      await load()
+    } catch (err) {
+      toast(err instanceof Error ? err.message : 'تعذّر حذف المفتاح', 'error')
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  return (
+    <div className="space-y-3 rounded-xl border border-border bg-surface-2 p-3">
+      {status === null ? (
+        <p className="flex items-start gap-2 text-[12px] leading-5 text-warn">
+          <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+          قاعدة البيانات تحتاج تحديثاً قبل حفظ المفتاح: شغّل الترحيل 20261019000000_ai_key.sql في
+          SQL Editor.
+        </p>
+      ) : saved ? (
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="flex items-center gap-2 text-[13px]">
+            <KeyRound className="size-4 shrink-0 text-ok" />
+            <span>
+              مفتاح {page.name} محفوظ{' '}
+              <bdi className="tnum font-semibold" dir="ltr">
+                {saved.hint}
+              </bdi>
+              <span className="text-muted"> · {relative(saved.updatedAt)}</span>
+            </span>
+          </p>
+          {manage && (
+            <Button size="sm" variant="ghost" onClick={clear} loading={busy === 'clear'}>
+              <Trash2 className="size-3.5 text-danger" />
+              حذف
+            </Button>
+          )}
+        </div>
+      ) : (
+        <p className="flex items-center gap-2 text-[13px] text-muted">
+          <KeyRound className="size-4 shrink-0" />
+          {status === undefined ? 'يُحمَّل…' : `لا يوجد مفتاح ${page.name} محفوظ بعد`}
+        </p>
+      )}
+
+      {manage && status !== null && (
+        <form
+          className="flex gap-2"
+          onSubmit={(e) => {
+            e.preventDefault()
+            if (key.trim()) void save()
+          }}
+        >
+          <Input
+            type="password"
+            dir="ltr"
+            autoComplete="off"
+            className="tnum min-w-0 flex-1"
+            placeholder={saved ? 'الصق مفتاحاً جديداً للاستبدال' : 'الصق مفتاح API هنا'}
+            aria-label={`مفتاح ${page.name}`}
+            value={key}
+            onChange={(e) => setKey(e.target.value)}
+          />
+          <Button
+            type="submit"
+            variant="primary"
+            className="shrink-0"
+            disabled={!key.trim()}
+            loading={busy === 'save'}
+          >
+            {/* «المفتاح» صريحاً: زر «حفظ» الإعدادات في الصفحة نفسها يحفظ شيئاً آخر. */}
+            {saved ? 'استبدال المفتاح' : 'حفظ المفتاح'}
+          </Button>
+        </form>
+      )}
+
+      <p className="flex items-start gap-2 text-[12px] leading-5 text-muted">
+        <ShieldCheck className="mt-0.5 size-4 shrink-0 text-ok" />
+        <span>
+          المفتاح من{' '}
+          <a
+            href={page.url}
+            target="_blank"
+            rel="noreferrer"
+            className="font-medium text-brand-strong underline underline-offset-2"
+          >
+            {page.label}
+          </a>{' '}
+          ← API Keys. يُتحقَّق منه عند المزوّد ثم يُحفظ في قاعدة بيانات المعمل، ويستعمله الخادم وحده
+          — لا يُخزَّن في هذا الجهاز. يستفيد منه كل من يملك صلاحية المحاسب الذكي (المالك والمدير)،
+          والرصيد يُخصم من حسابك عند المزوّد.
+        </span>
+      </p>
     </div>
   )
 }

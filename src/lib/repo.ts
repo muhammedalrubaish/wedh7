@@ -21,7 +21,7 @@ import {
   saveSettings as saveSettingsLocal,
   uid,
 } from './db'
-import { cloudEnabled, humanError, isMissingSchema, requireClient } from './supabase'
+import { authHeader, cloudEnabled, humanError, isMissingSchema, requireClient } from './supabase'
 import { refreshInvoice, refreshPart, refreshParts, refreshReturn } from './mirror'
 import { returnUnitPrice, returnedByPart } from './analytics'
 import { round2 } from './format'
@@ -1047,6 +1047,61 @@ export async function deletePurchaseBill(id: string): Promise<void> {
     if (error) fail(error)
   }
   await db.purchaseBills.delete(id)
+}
+
+/* -------------------------------------------------------------------------- */
+/* مفتاح المحاسب الذكي                                                          */
+/* -------------------------------------------------------------------------- */
+
+export type AiKeyProvider = 'deepseek' | 'anthropic'
+
+export interface AiKeyStatus {
+  provider: AiKeyProvider
+  /** آخر أربعة أحرف للتمييز («…ab12») — المفتاح نفسه لا يعود إلى المتصفح أبداً. */
+  hint: string
+  updatedAt: number
+}
+
+/**
+ * الحفظ عبر `/api/ai` لا عبر الدالة مباشرة: الخادم يتحقق من المفتاح عند المزوّد أولاً
+ * (المتصفح لا يقدر — ديب سيك ترفض CORS)، فالمفتاح الخاطئ يُرفض الآن لا عند أول سؤال.
+ */
+export async function saveAiKey(provider: AiKeyProvider, key: string): Promise<string> {
+  guardOnline()
+  const res = await fetch('/api/ai', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', ...(await authHeader()) },
+    body: JSON.stringify({ action: 'save_key', provider, key }),
+  })
+  const data = (await res.json().catch(() => ({}))) as { hint?: string; error?: string }
+  if (!res.ok) throw new Error(data.error ?? `تعذّر حفظ المفتاح (${res.status}).`)
+  return data.hint ?? ''
+}
+
+export async function clearAiKey(provider: AiKeyProvider): Promise<void> {
+  guardOnline()
+  const { error } = await requireClient().rpc('ai_key_clear', { p_provider: provider })
+  if (error) fail(error)
+}
+
+/**
+ * قراءة من الخادم لا من المرآة: الحالة ليست بيانات محل تُسحب، والمفتاح لا يُخزَّن في
+ * المتصفح. `null` = القاعدة بلا ترحيل `ai_keys` بعد.
+ */
+export async function fetchAiKeyStatus(): Promise<AiKeyStatus[] | null> {
+  if (!cloudEnabled) return []
+  const { data, error } = await requireClient().rpc('ai_key_status')
+  if (error) {
+    if (isMissingSchema(error)) return null
+    fail(error)
+  }
+  return ((data ?? []) as Array<{ provider: string; hint: string; updated_at: string }>).map(
+    (r) => ({
+      provider: r.provider as AiKeyProvider,
+      hint: r.hint,
+      updatedAt: new Date(r.updated_at).getTime(),
+    }),
+  )
 }
 
 export async function audit(

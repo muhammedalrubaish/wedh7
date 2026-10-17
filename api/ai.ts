@@ -5,10 +5,14 @@
  * داخل الصفحة ويقرأه أي زائر. هنا يبقى المفتاح في متغيرات بيئة Vercel ولا يغادر
  * الخادم، وتُحلّ معه مشكلة CORS لأن الصفحة تنادي أصلها نفسه.
  *
- * حدّ معروف لم يُعالَج بعد: هذه النقطة عامة. المفتاح لم يعد مكشوفاً، لكن من يعرف
- * عنوان الموقع يقدر يستهلكه. فحص الأصل أدناه يصدّ استدعاءً من صفحة أخرى ولا يصدّ
- * curl. الحارس الصحيح هو التحقق من رمز جلسة Supabase في ترويسة Authorization،
- * ويُضاف فور ربط المصادقة.
+ * من أين يأتي المفتاح، بالترتيب:
+ *   ١. ما حفظه صاحب المعمل من «الإعدادات ← المحاسب الذكي» في جدول `ai_keys`. يُقرأ
+ *      بجلسة المستخدم نفسه (ترويسة Authorization) عبر `ai_key_get` التي تشترط
+ *      `ai.use` — فلا يستهلكه زائر ولا موظف بلا الصلاحية، والحكم لـPostgres لا لهذا الملف.
+ *   ٢. متغيّر Vercel (`DEEPSEEK_API_KEY`…) للنشرات التي ضُبط فيها، كما كان قبل الجدول.
+ *
+ * حدّ معروف باقٍ في المسار الثاني وحده: النقطة عامة، ومن يعرف العنوان يستهلك مفتاح
+ * المتغيّر. فحص الأصل أدناه يصدّ صفحة أخرى ولا يصدّ curl. المسار الأول لا يعمل بلا جلسة.
  */
 
 export const config = { runtime: 'edge' }
@@ -35,8 +39,13 @@ interface Balance {
   currency: string
 }
 
+type Provider = 'deepseek' | 'anthropic'
+
 interface AiRequest {
-  provider?: 'deepseek' | 'anthropic'
+  /** `save_key` يحفظ مفتاح المحاسب بعد التحقق منه عند المزوّد؛ غيابه = سؤال. */
+  action?: 'save_key'
+  provider?: Provider
+  key?: string
   model?: string
   system?: string
   messages?: ChatMessage[]
@@ -54,6 +63,114 @@ function json(status: number, body: unknown): Response {
     status,
     headers: { 'content-type': 'application/json; charset=utf-8' },
   })
+}
+
+// متغيّرا Supabase العامّان نفسهما اللذان تُبنى بهما الواجهة — Vercel يمرّر كل متغيّرات
+// المشروع إلى الدوال، فلا يُضبط شيء جديد. المفتاح العام وحده لا يقرأ `ai_keys`.
+const SUPABASE_URL = (process.env.VITE_SUPABASE_URL ?? '').trim().replace(/\/+$/, '')
+const SUPABASE_ANON = (process.env.VITE_SUPABASE_ANON_KEY ?? '').trim()
+
+const NO_KEY = 'لم يُحفظ مفتاح للمحاسب بعد. المالك يضيفه من الإعدادات ← المحاسب الذكي.'
+
+function bearer(req: Request): string | null {
+  const h = req.headers.get('authorization') ?? ''
+  return h.startsWith('Bearer ') ? h.slice(7).trim() || null : null
+}
+
+/** نداء دالة في Supabase بجلسة المستخدم: الصلاحية تقرّرها Postgres. */
+async function rpc(
+  name: string,
+  args: Record<string, unknown>,
+  jwt: string,
+): Promise<{ ok: boolean; status: number; data: unknown }> {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${name}`, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      apikey: SUPABASE_ANON,
+      authorization: `Bearer ${jwt}`,
+    },
+    body: JSON.stringify(args),
+  })
+  const data = await res.json().catch(() => null)
+  return { ok: res.ok, status: res.status, data }
+}
+
+/** دالة غير موجودة: القاعدة لم يُطبَّق عليها ترحيل `ai_keys` بعد. */
+const missingFn = (r: { status: number; data: unknown }) =>
+  r.status === 404 || (r.data as { code?: string } | null)?.code === 'PGRST202'
+
+/** المفتاح المحفوظ أولاً ثم متغيّر Vercel. `error` = رفض صريح لا يُتجاوز إلى المتغيّر. */
+async function resolveKey(
+  req: Request,
+  provider: Provider,
+): Promise<{ key?: string; error?: string; status?: number }> {
+  const jwt = bearer(req)
+  if (jwt && SUPABASE_URL && SUPABASE_ANON) {
+    const r = await rpc('ai_key_get', { p_provider: provider }, jwt)
+    if (r.ok && typeof r.data === 'string' && r.data.trim()) return { key: r.data.trim() }
+    if (r.status === 401 || r.status === 403) {
+      return { error: 'ما عندك صلاحية المحاسب الذكي.', status: 403 }
+    }
+    if (!r.ok && !missingFn(r)) {
+      return { error: `تعذّر قراءة مفتاح المحاسب (${r.status}).`, status: 502 }
+    }
+  }
+  const env = provider === 'deepseek' ? process.env.DEEPSEEK_API_KEY : process.env.ANTHROPIC_API_KEY
+  return env ? { key: env } : {}
+}
+
+/**
+ * يتحقق من المفتاح عند المزوّد قبل حفظه: مفتاح خاطئ يُكتشف الآن برسالة واضحة، لا
+ * عند أول سؤال بعد أيام. نقاط لا تستهلك رموزاً: الرصيد لديب سيك، والنماذج لأنثروبيك.
+ */
+async function checkKey(provider: Provider, key: string): Promise<string | null> {
+  const res =
+    provider === 'deepseek'
+      ? await fetch('https://api.deepseek.com/user/balance', {
+          headers: { authorization: `Bearer ${key}`, accept: 'application/json' },
+        })
+      : await fetch('https://api.anthropic.com/v1/models', {
+          headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01' },
+        })
+  if (res.ok) return null
+  if (res.status === 401 || res.status === 403) {
+    return 'المزوّد رفض المفتاح — تأكد أنك نسخته كاملاً وأنه لم يُحذف.'
+  }
+  return `تعذّر التحقق من المفتاح عند المزوّد (${res.status}). حاول بعد قليل.`
+}
+
+async function saveKey(req: Request, body: AiRequest): Promise<Response> {
+  const jwt = bearer(req)
+  if (!jwt || !SUPABASE_URL || !SUPABASE_ANON) {
+    return json(400, { error: 'حفظ المفتاح يحتاج تسجيل دخول وقاعدة بيانات مربوطة.' })
+  }
+  const provider: Provider = body.provider === 'anthropic' ? 'anthropic' : 'deepseek'
+  const key = (body.key ?? '').trim()
+  if (!key) return json(400, { error: 'الصق المفتاح أولاً.' })
+  if (key.length > 400 || /\s/.test(key)) {
+    return json(400, { error: 'هذا لا يشبه مفتاحاً — انسخه من صفحة المزوّد كما هو.' })
+  }
+
+  let invalid: string | null
+  try {
+    invalid = await checkKey(provider, key)
+  } catch {
+    invalid = 'تعذّر الوصول إلى المزوّد للتحقق من المفتاح.'
+  }
+  if (invalid) return json(400, { error: invalid })
+
+  const r = await rpc('ai_key_set', { p_provider: provider, p_key: key }, jwt)
+  if (r.ok) return json(200, { ok: true, hint: '…' + key.slice(-4) })
+  if (missingFn(r)) {
+    return json(500, {
+      error: 'قاعدة البيانات تحتاج تحديثاً: شغّل الترحيل 20261019000000_ai_key.sql في SQL Editor.',
+    })
+  }
+  if (r.status === 401 || r.status === 403) {
+    return json(403, { error: 'حفظ المفتاح للمالك وحده (صلاحية إعدادات النظام).' })
+  }
+  return json(502, { error: `تعذّر حفظ المفتاح (${r.status}).` })
 }
 
 /** يمنع الاستدعاء من مواقع أخرى. ليس بديلاً عن مصادقة حقيقية. */
@@ -76,9 +193,8 @@ export default async function handler(req: Request): Promise<Response> {
   if (req.method === 'GET') {
     const provider =
       new URL(req.url).searchParams.get('provider') === 'anthropic' ? 'anthropic' : 'deepseek'
-    const key =
-      provider === 'deepseek' ? process.env.DEEPSEEK_API_KEY : process.env.ANTHROPIC_API_KEY
-    if (!key) return json(200, { balance: null, reason: 'المفتاح غير مضبوط' })
+    const { key, error } = await resolveKey(req, provider)
+    if (!key) return json(200, { balance: null, reason: error ?? 'المفتاح غير مضبوط' })
     if (provider !== 'deepseek') {
       return json(200, { balance: null, reason: 'أنثروبيك ما توفّر نقطة رصيد' })
     }
@@ -100,22 +216,18 @@ export default async function handler(req: Request): Promise<Response> {
     return json(400, { error: 'صيغة الطلب غير صالحة' })
   }
 
-  const provider = body.provider ?? 'deepseek'
+  if (body.action === 'save_key') return saveKey(req, body)
+
+  const provider: Provider = body.provider === 'anthropic' ? 'anthropic' : 'deepseek'
   const messages = body.messages ?? []
   if (messages.length === 0) {
     return json(400, { error: 'لا توجد رسائل' })
   }
 
-  const key = provider === 'deepseek' ? process.env.DEEPSEEK_API_KEY : process.env.ANTHROPIC_API_KEY
-
-  if (!key) {
-    return json(500, {
-      error:
-        provider === 'deepseek'
-          ? 'مفتاح ديب سيك غير مضبوط في Vercel. أضِف متغيراً باسم DEEPSEEK_API_KEY وأعد النشر.'
-          : 'مفتاح أنثروبيك غير مضبوط في Vercel. أضِف متغيراً باسم ANTHROPIC_API_KEY وأعد النشر.',
-    })
-  }
+  const resolved = await resolveKey(req, provider)
+  if (resolved.error) return json(resolved.status ?? 500, { error: resolved.error })
+  const key = resolved.key
+  if (!key) return json(500, { error: NO_KEY })
 
   const model = body.model || DEFAULT_MODEL[provider]
   const system = body.system ?? ''

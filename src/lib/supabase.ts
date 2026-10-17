@@ -92,6 +92,17 @@ export const supabase: SupabaseClient | null =
       })
     : null
 
+/**
+ * ترويسة جلسة المستخدم لنداءات `/api/ai`: الخادم يقرأ بها مفتاح المحاسب المحفوظ،
+ * وPostgres تقرّر الصلاحية. بلا جلسة (وضع العرض) تبقى الترويسة فارغة.
+ */
+export async function authHeader(): Promise<Record<string, string>> {
+  if (!supabase) return {}
+  const { data } = await supabase.auth.getSession()
+  const token = data.session?.access_token
+  return token ? { authorization: `Bearer ${token}` } : {}
+}
+
 /** يُستدعى في مسارات الكتابة: يوضّح السبب بدل انهيار بمرجع فارغ. */
 export function requireClient(): SupabaseClient {
   if (!supabase) {

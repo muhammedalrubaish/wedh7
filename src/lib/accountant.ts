@@ -8,6 +8,7 @@ import {
   topParts,
 } from './analytics'
 import { daysAgo, endOfDay, marginPercent, money, round2 } from './format'
+import { authHeader, cloudEnabled } from './supabase'
 import type {
   Category,
   Invoice,
@@ -342,7 +343,7 @@ const NO_USAGE: TokenUsage = { input: 0, output: 0, total: 0 }
 export async function fetchBalance(provider: AiProvider): Promise<ProviderBalance | null> {
   if (provider === 'none') return null
   try {
-    const res = await fetch(`/api/ai?provider=${provider}`)
+    const res = await fetch(`/api/ai?provider=${provider}`, { headers: await authHeader() })
     if (!res.ok) return null
     const data = (await res.json()) as { balance?: ProviderBalance | null }
     return data.balance ?? null
@@ -390,7 +391,9 @@ export async function askAccountant(input: {
   }
 
   const messages = buildMessages(input)
-  const useServer = input.apiKey.trim().length === 0
+  // في وضع المحل المفتاح محفوظ على الخادم دائماً؛ مفتاح قديم بقي في هذا المتصفح لا
+  // يُرسل من الصفحة. المسار المباشر لوضع العرض وحده، حيث لا قاعدة تحفظ المفتاح.
+  const useServer = cloudEnabled || input.apiKey.trim().length === 0
 
   if (useServer) return askViaServer(input.provider, input.model, messages)
   if (input.provider === 'anthropic') return askAnthropicDirect(input.apiKey, input.model, messages)
@@ -404,7 +407,7 @@ async function askViaServer(
 ): Promise<AiAnswer> {
   const res = await fetch('/api/ai', {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: { 'content-type': 'application/json', ...(await authHeader()) },
     body: JSON.stringify({ provider, model, system: SYSTEM_PROMPT, messages }),
   })
 
@@ -416,7 +419,7 @@ async function askViaServer(
   if (!res.ok) {
     throw new Error(
       data.error ??
-        `تعذّر الاتصال بالخادم (${res.status}). تأكد أن الموقع منشور على Vercel وأن المفتاح مضبوط في إعداداته.`,
+        `تعذّر الاتصال بالخادم (${res.status}). تأكد من الاتصال، وأن مفتاح المحاسب محفوظ في الإعدادات.`,
     )
   }
   return {
