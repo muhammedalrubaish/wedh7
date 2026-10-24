@@ -178,6 +178,7 @@ src/lib/whatsapp.ts    نصوص واتساب وروابط wa.me
 src/lib/printReport.ts طباعة التقرير التفصيلي (A4) — الفاتورة الحرارية في print.ts
 src/lib/invoicePdf.ts  الفاتورة PDF بمقاس الجوال (canvas ثم PDF يدوي) — واتساب وحفظ في الجوال
 src/lib/invoiceFigures.ts أرقام أسفل الفاتورة: كل خصم يُطرح مرة واحدة (المعاينة والطباعة وواتساب)
+src/lib/display.ts     زر العين: money/percent للشاشات تُخفى بضغطة؛ الطباعة وPDF وواتساب والمحاسب على format.ts
 src/lib/accountant.ts  اللقطة المالية + التحليل المحلي + نداء المزوّد
 src/lib/permissions.ts مصفوفة الأدوار (نسخة الواجهة)
 src/components/ui.tsx  نظام التصميم كاملاً

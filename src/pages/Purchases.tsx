@@ -15,7 +15,8 @@ import {
   useToast,
 } from '@/components/ui'
 import { audit, createPurchaseOrder, receivePurchase, updatePurchaseOrder } from '@/lib/repo'
-import { date, money, num, relative } from '@/lib/format'
+import { date, num, relative } from '@/lib/format'
+import { money } from '@/lib/display'
 import { reorderSuggestions } from '@/lib/analytics'
 import { useApp } from '@/store/app'
 import {

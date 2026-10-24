@@ -36,7 +36,8 @@ import {
   summarize,
   topParts,
 } from '@/lib/analytics'
-import { daysAgo, endOfDay, money, num, shortDay, time } from '@/lib/format'
+import { daysAgo, endOfDay, num, shortDay, time } from '@/lib/format'
+import { hide, money, numbersHidden } from '@/lib/display'
 import {
   useActiveParts,
   useCategories,
@@ -164,7 +165,7 @@ export default function Dashboard() {
             icon={<TrendingUp className="size-5" />}
             tone="ok"
             change={changePercent(current.profit, previous.profit)}
-            sub={`هامش ${current.marginPercent.toFixed(1)}٪`}
+            sub={`هامش ${hide(`${current.marginPercent.toFixed(1)}٪`)}`}
           />
         ) : (
           <Stat
@@ -232,7 +233,9 @@ export default function Dashboard() {
                   tickLine={false}
                   width={52}
                   tickFormatter={(v) =>
-                    new Intl.NumberFormat('en', { notation: 'compact' }).format(Number(v))
+                    numbersHidden()
+                      ? ''
+                      : new Intl.NumberFormat('en', { notation: 'compact' }).format(Number(v))
                   }
                 />
                 <Tooltip content={<ChartTooltip showProfit={showMoney} />} />

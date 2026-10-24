@@ -29,7 +29,8 @@ import {
 import { PartForm } from '@/components/PartForm'
 import { CategoryManager } from '@/components/CategoryManager'
 import { bulkUpdateParts, type BulkPartPatch } from '@/lib/repo'
-import { marginPercent, money, num } from '@/lib/format'
+import { marginPercent, num } from '@/lib/format'
+import { hide, money } from '@/lib/display'
 import {
   useActiveParts,
   useCategories,
@@ -382,7 +383,7 @@ export default function Inventory() {
                                 margin < 15 ? 'text-danger' : margin < 30 ? 'text-warn' : 'text-ok',
                               )}
                             >
-                              {margin.toFixed(0)}٪
+                              {hide(`${margin.toFixed(0)}٪`)}
                             </span>
                           </td>
                         )}

@@ -5,6 +5,8 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import {
   Bot,
   ChevronLeft,
+  Eye,
+  EyeOff,
   FileText,
   LayoutDashboard,
   LogOut,
@@ -32,6 +34,8 @@ import { AuditButton } from './AuditLog'
 import { Splash } from './Splash'
 import { useApp } from '@/store/app'
 import { useFeedbackPrefs } from '@/hooks/useFeedbackPrefs'
+import { useNumbersHidden } from '@/hooks/useNumbersHidden'
+import { setNumbersHidden } from '@/lib/display'
 import { tapSound } from '@/lib/feedback'
 import { ROLE_LABELS, type Capability } from '@/lib/permissions'
 import { db } from '@/lib/db'
@@ -244,6 +248,7 @@ export function AppShell() {
           <div className="flex-1" />
 
           <AuditButton />
+          <NumbersToggle />
           <SoundToggle />
           <Button variant="ghost" size="icon" onClick={toggleTheme} aria-label="تبديل المظهر">
             {settings.theme === 'dark' ? <Sun className="size-4" /> : <Moon className="size-4" />}
@@ -577,6 +582,27 @@ function NavGroup({
           document.body,
         )}
     </>
+  )
+}
+
+/**
+ * زر العين كما في تطبيقات البنوك: صاحب المعمل يفتح النظام أمام زبون أو موظف، أو يشارك
+ * شاشته، فتختفي المبالغ والنسب بضغطة وتعود بأخرى. الحالة محفوظة في هذا الجهاز وحده.
+ * الطباعة وPDF وواتساب لا تتأثر — انظر `src/lib/display.ts`.
+ */
+function NumbersToggle() {
+  const hidden = useNumbersHidden()
+  return (
+    <Button
+      variant="ghost"
+      size="icon"
+      aria-label={hidden ? 'الأرقام مخفية — اضغط لإظهارها' : 'الأرقام ظاهرة — اضغط لإخفائها'}
+      aria-pressed={hidden}
+      title={hidden ? 'إظهار الأرقام' : 'إخفاء الأرقام'}
+      onClick={() => setNumbersHidden(!hidden)}
+    >
+      {hidden ? <EyeOff className="size-4 text-faint" /> : <Eye className="size-4" />}
+    </Button>
   )
 }
 

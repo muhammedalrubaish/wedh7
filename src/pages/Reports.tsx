@@ -42,7 +42,6 @@ import {
   date,
   daysAgo,
   endOfDay,
-  money,
   monthLabel,
   num,
   relative,
@@ -50,6 +49,7 @@ import {
   shortDay,
   startOfDay,
 } from '@/lib/format'
+import { money } from '@/lib/display'
 import { statementMessage, waLink } from '@/lib/whatsapp'
 import { useApp } from '@/store/app'
 import {

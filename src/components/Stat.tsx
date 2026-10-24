@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { ArrowDownRight, ArrowUpRight, Minus } from 'lucide-react'
 import { Card, cn, type Tone } from './ui'
-import { percent } from '@/lib/format'
+import { percent } from '@/lib/display'
 
 const ICON_TONES: Record<Tone, string> = {
   neutral: 'bg-surface-2 text-muted',

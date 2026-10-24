@@ -19,7 +19,8 @@ import {
 import { Stat } from '@/components/Stat'
 import { audit, updateCategory, updatePart } from '@/lib/repo'
 import { countedQty } from '@/lib/analytics'
-import { marginPercent, money, num, round2 } from '@/lib/format'
+import { marginPercent, num, round2 } from '@/lib/format'
+import { hide, money } from '@/lib/display'
 import { useApp } from '@/store/app'
 import { useActiveParts, useCategories } from '@/hooks/useShopData'
 import type { Part } from '@/lib/types'
@@ -125,7 +126,7 @@ export default function Pricing() {
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat
           label="متوسط الهامش المرجّح"
-          value={`${stats.averageMargin.toFixed(1)}٪`}
+          value={hide(`${stats.averageMargin.toFixed(1)}٪`)}
           icon={<Percent className="size-5" />}
           tone={stats.averageMargin < 25 ? 'warn' : 'ok'}
         />
@@ -257,7 +258,7 @@ export default function Pricing() {
                               margin < 0 ? 'danger' : margin < MIN_HEALTHY_MARGIN ? 'warn' : 'ok'
                             }
                           >
-                            {margin.toFixed(0)}٪
+                            {hide(`${margin.toFixed(0)}٪`)}
                           </Badge>
                         </td>
                       </tr>

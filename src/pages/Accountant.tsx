@@ -34,7 +34,8 @@ import {
   type InsightTone,
   type ProviderBalance,
 } from '@/lib/accountant'
-import { money, num, relative } from '@/lib/format'
+import { num, relative } from '@/lib/format'
+import { maskDigits, money } from '@/lib/display'
 import { useApp } from '@/store/app'
 import { cloudEnabled } from '@/lib/supabase'
 import {
@@ -223,7 +224,7 @@ export default function Accountant() {
                       : 'rounded-tl-sm bg-surface-2',
                   )}
                 >
-                  {m.content}
+                  {maskDigits(m.content)}
                 </div>
               </div>
             ))}
@@ -429,10 +430,12 @@ function InsightCard({ insight }: { insight: Insight }) {
       <div className="flex items-start gap-2">
         <span className="mt-0.5 shrink-0">{style.icon}</span>
         <div className="min-w-0">
-          <p className="text-[13px] font-semibold">{insight.title}</p>
-          <p className="mt-1 text-[12px] leading-5 text-muted">{insight.body}</p>
+          <p className="text-[13px] font-semibold">{maskDigits(insight.title)}</p>
+          <p className="mt-1 text-[12px] leading-5 text-muted">{maskDigits(insight.body)}</p>
           {insight.action && (
-            <p className="mt-1.5 text-[12px] font-medium text-brand-strong">← {insight.action}</p>
+            <p className="mt-1.5 text-[12px] font-medium text-brand-strong">
+              ← {maskDigits(insight.action)}
+            </p>
           )}
         </div>
       </div>

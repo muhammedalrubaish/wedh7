@@ -4,7 +4,7 @@ import { BrowserMultiFormatReader, type IScannerControls } from '@zxing/browser'
 import { CameraOff, Keyboard, QrCode, ScanLine, VideoOff } from 'lucide-react'
 import { Badge, Button, Card, CardHeader, EmptyState, Input, Meter, cn } from '@/components/ui'
 import { db } from '@/lib/db'
-import { money } from '@/lib/format'
+import { money } from '@/lib/display'
 import { useApp } from '@/store/app'
 import type { Part } from '@/lib/types'
 

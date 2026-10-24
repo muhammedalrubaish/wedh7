@@ -9,6 +9,7 @@ import type { Capability } from './lib/permissions'
 
 import Login from './pages/Login'
 import { recoveryActive } from './lib/auth'
+import { useNumbersHidden } from './hooks/useNumbersHidden'
 
 const ResetPassword = lazy(() => import('./pages/ResetPassword'))
 
@@ -53,6 +54,10 @@ function Guard({ cap, children }: { cap: Capability; children: React.ReactNode }
 
 export default function App() {
   const { user } = useApp()
+  // القيمة لا تُستعمل هنا: الاشتراك وحده يعيد رسم الجذر عند ضغط زر العين، فتُبنى عناصر
+  // المسارات من جديد وتُعاد كل شاشة بالأرقام مخفية أو ظاهرة. `<Outlet>` وحده لا يكفي —
+  // يعيد نفس العنصر فيتخطّى React رسم الصفحة.
+  useNumbersHidden()
 
   // مسار الاسترجاع يسبق كل شيء، حتى وإن صارت الجلسة قائمة: جلسة الرابط مؤقتة،
   // وترك المستخدم يتصفّح بها يعني أن تنتهي وهو لا يعرف كلمته بعد.

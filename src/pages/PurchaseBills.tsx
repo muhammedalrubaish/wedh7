@@ -26,7 +26,8 @@ import {
   type Tone,
 } from '@/components/ui'
 import { Stat } from '@/components/Stat'
-import { date, money, monthLabel, num, parseNum, round2 } from '@/lib/format'
+import { date, monthLabel, num, parseNum, round2 } from '@/lib/format'
+import { money } from '@/lib/display'
 import { purchasesSummary } from '@/lib/analytics'
 import { STARTER_GROUPS, groupHint, groupName, groupsOf } from '@/lib/expenseGroups'
 import {
