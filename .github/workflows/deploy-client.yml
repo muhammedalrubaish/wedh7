@@ -1,0 +1,49 @@
+# نشر موقع العميل (wedh7.vercel.app) بضغطة من تبويب Actions.
+#
+# لماذا بضغطة لا تلقائياً: مشروع العميل في Vercel انتقل إلى حسابه وانقطع ربطه بـGit،
+# وبعض التحديثات تحتاج ترحيلاً يطبّقه العميل بنفسه في Supabase أولاً. نشر تلقائي مع كل
+# دفعة قد يُوصل واجهة تطلب عموداً لم يُنشأ بعد، فتتعطّل شاشة البيع عنده.
+#
+# البناء يتم على Vercel لا هنا (`vercel deploy` يرفع المصدر فقط): متغيّرات Supabase تبقى
+# في حساب العميل ولا تمرّ على GitHub.
+#
+# الأسرار الثلاثة من حساب العميل، ويستطيع إلغاء الرمز متى شاء فيتوقف هذا النشر فوراً:
+#   VERCEL_CLIENT_TOKEN       Vercel ← Account Settings ← Tokens (نطاقه فريق wedh7)
+#   VERCEL_CLIENT_ORG_ID      معرّف الفريق (orgId في .vercel/project.json)
+#   VERCEL_CLIENT_PROJECT_ID  معرّف المشروع (projectId في نفس الملف)
+
+name: نشر موقع العميل
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-client
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    # فرع غير `main` قد يكون تجربة لم تكتمل؛ إنتاج العميل لا يستقبل إلا الفرع المعتمد.
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: نشر على Vercel العميل
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_CLIENT_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_CLIENT_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_CLIENT_PROJECT_ID }}
+        run: |
+          if [ -z "$VERCEL_TOKEN" ] || [ -z "$VERCEL_ORG_ID" ] || [ -z "$VERCEL_PROJECT_ID" ]; then
+            echo "::error::ينقص سرّ من الثلاثة في Settings ← Secrets and variables ← Actions"
+            exit 1
+          fi
+          npx --yes vercel@64.5.0 deploy --prod --yes --token "$VERCEL_TOKEN"
